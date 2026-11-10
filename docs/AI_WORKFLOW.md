@@ -69,3 +69,25 @@ The proposal was saved as one logical Git commit; implementation remains pending
 
 None so far. The folder structure, public interfaces, capacities, zero-bet
 classification, meter semantics and post-result fault policy await user review.
+
+## 2026-11-11 — Bug review requested by user
+
+The user requested a bug review without approving implementation. The assistant
+and two independent AI reviewers inspected the existing headers and proposal.
+They identified two design-contract issues:
+
+- `WheelReport` has no observation timestamp, while the proposal gives timeouts
+  priority over queued reports. Motion detected at 1,999 ms but polled at the
+  2,000 ms deadline would incorrectly trigger NoSpin. A ball report can suffer
+  the same race. Proposed correction: timestamp meaningful observations, consume
+  reports that occurred before the deadline, and then evaluate the timeout.
+- The storage contract reserves space for settlement/refund but does not reserve
+  revision and event-sequence values. A rejection commit can use the final
+  revision while stakes remain outstanding, preventing any later resolution
+  commit. Proposed correction: preserve terminal counter headroom on every
+  non-terminal commit, including rejection logging.
+
+These findings follow from the declared contracts; no runtime reproduction or
+new test run was claimed. Header syntax was already checked in the preceding
+proposal step. The headers and proposal remain unchanged; only this workflow
+record was updated. Both findings are open, and implementation still awaits OK.
