@@ -91,3 +91,33 @@ These findings follow from the declared contracts; no runtime reproduction or
 new test run was claimed. Header syntax was already checked in the preceding
 proposal step. The headers and proposal remain unchanged; only this workflow
 record was updated. Both findings are open, and implementation still awaits OK.
+
+## 2026-11-11 — Browser phase and later-phase additions
+
+### User changes
+
+The user added Phase 3B: the same C++ engine compiled to WASM with embind; a Vite
+and TypeScript player terminal with seven simulator bots; a separate operator
+route with meters, events, fault injection, localStorage recovery and charts;
+optional hardware-only Web Serial; and GitHub Pages deployment. The user also
+added OLED wheel/result rendering to Phase 4, and Monte Carlo PNG plotting plus
+web/Wokwi recording slots to Phase 5.
+
+### Planning performed
+
+The assistant added `PHASE_3B_PROPOSAL.md`, extended the planned folder structure,
+and updated README with the result-first presentation principle, planned live-link
+location, bridge explanation and media slots. An AI reviewer checked the core/API
+implications. The plan includes C++ undo/clear/atomic repeat, shared simulator
+components, exact 64-bit bridge values, one ledger writer, engine-owned statistics,
+and recovery independent of animation. The earlier two review findings remain open.
+
+Official Emscripten, Vite, browser storage, Web Locks and serial documentation was
+consulted to check the proposed bridge and hosting/persistence boundaries; links
+are included in the new plan. The current request was treated as a scope addition
+under the existing review gate. No game/bridge/UI/firmware implementation or
+deployment was performed, and no new public header declarations were added.
+
+The reviewer inspected the saved additions and found no coverage or consistency
+blockers. Local documentation links, paired code fences and `git diff --check`
+passed. No game or browser tests were run for this documentation-only change.

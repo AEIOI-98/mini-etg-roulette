@@ -4,6 +4,12 @@ Status: **proposal awaiting the user's OK**. Runtime functions are declarations
 only. Default field values and fixed capacity constants are included so the types
 are readable. No Phase 1 game behavior has been implemented.
 
+The user has since added [Phase 3B and Phase 4–5 extensions](PHASE_3B_PROPOSAL.md).
+Its core API implications are recorded there; the existing headers are still the
+original proposal. The two issues from the bug review (sensor observation times
+and terminal counter reservations) remain open and must be resolved before the
+affected implementation is accepted.
+
 ## Folder structure
 
 Paths marked `[later]` are a plan, not existing implementations.
@@ -38,22 +44,31 @@ mini-etg-roulette/
 │       ├── seeded_random.hpp
 │       ├── fake_wheel.hpp
 │       └── memory_storage.hpp
-├── sim/src/                               [Phase 3]
+├── sim/
+│   ├── src/                               [Phase 3: CLI]
+│   └── shared/                            [Phase 3: C++ bots, RNG, simulated wheel]
+├── web/                                   [Phase 3B: Vite + TypeScript]
+│   ├── wasm/                              [embind + browser adapters]
+│   ├── src/                               [player/operator views + rendering]
+│   └── test/                              [bridge, interactions, recovery, visual QA]
 ├── firmware/
 │   ├── src/                               [Phase 4: adapters + non-blocking loop]
 │   ├── diagram.json                       [Phase 4]
 │   └── wokwi.toml                         [Phase 4]
-├── tools/                                 [Phases 2 and 4]
+├── tools/                                 [Phases 2, 4 and 5: math, monitor, plots]
 ├── docs/
 │   ├── PHASE_1_PROPOSAL.md
+│   ├── PHASE_3B_PROPOSAL.md
 │   ├── AI_WORKFLOW.md
 │   └── MATH.md                            [Phase 2]
-└── .github/workflows/ci.yml                [Phase 5]
+└── .github/workflows/
+    ├── deploy-web.yml                     [Phase 3B: GitHub Pages]
+    └── ci.yml                             [Phase 5: full native/firmware checks]
 ```
 
 Tests live in the same repository and arrive with each implementation step.
 PlatformIO's `test/` location keeps `pio test -e native` straightforward.
-Desktop, test, and ESP32 adapters will all use the same `core/` library.
+Desktop, test, browser WASM, and ESP32 adapters will all use the same `core/` library.
 There will be no Arduino headers in `core/`.
 
 ## Public header index
