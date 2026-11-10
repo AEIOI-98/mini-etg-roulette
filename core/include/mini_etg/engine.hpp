@@ -1,0 +1,73 @@
+#pragma once
+
+#include "mini_etg/storage.hpp"
+#include "mini_etg/wheel.hpp"
+
+namespace mini_etg {
+
+enum class RuntimeStatus : std::uint8_t { Uninitialized, Ready, RecoveryRequired };
+enum class RecoveryAction : std::uint8_t { None, Refunded, PayoutCompleted, AlreadyPaid };
+
+struct RecoveryReport {
+    RecoveryAction action{RecoveryAction::None};
+    RoundId round_id{0};
+    RoundState restored_state{RoundState::Idle};
+};
+
+// One caller/task owns the engine. Never call it from an ISR or concurrently.
+class Engine {
+public:
+    // References are borrowed; wheel and storage must outlive this Engine.
+    Engine(IWheel& wheel, IStorage& storage) noexcept;
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
+
+    // Only succeeds against empty storage. Initial funding is metered and logged.
+    Error initialize(const EngineConfig& config,
+                     const std::array<Credits, kSeatCount>& initial_credits) noexcept;
+
+    // Stops/clears wheel first. Resets volatile timing and resolves durable ledger.
+    // NoJournal allows initialize(); existing configuration comes from the journal.
+    Error recover(RecoveryReport& out) noexcept;
+
+    RuntimeStatus status() const noexcept;
+    const Snapshot& snapshot() const noexcept; // Valid after initialize/recover succeeds.
+
+    Error credit_in(SeatId seat, Credits amount) noexcept;  // Idle only.
+    Error credit_out(SeatId seat, Credits amount) noexcept; // Idle only.
+
+    Error open_bets() noexcept;       // Idle -> BetsOpen.
+    Error begin_closing() noexcept;   // BetsOpen -> BetsClosing; reject new bets.
+    Error close_bets() noexcept;      // BetsClosing -> BetsClosed.
+    // BetsOpen only. Check canonical repeated exposure and settlement headroom.
+    // accepted_id is unchanged on failure; the caller must not blindly retry an
+    // uncertain commit (recover first and inspect the journal).
+    Error place_bet(const BetRequest& request, BetId& accepted_id) noexcept;
+    Error start_spin(TickMs now_ms) noexcept; // BetsClosed -> Spinning, then wheel.start.
+    Error tick(TickMs now_ms) noexcept;      // Spinning only; sole result input: IWheel.
+    Error settle() noexcept;          // Result -> Payout; pay all seats atomically.
+    Error finish_round() noexcept;    // Payout -> Idle; retain last round for display.
+
+    // Idle or a pre-result active state -> Fault, with atomic refund if outstanding.
+    // Reject after durable Result: settlement is then compulsory, never a refund.
+    Error raise_fault(FaultCode fault) noexcept;
+    Error acknowledge_fault() noexcept; // Fault -> Idle, only with zero escrow.
+
+private:
+    // Private helpers are declarations too: there is no game implementation yet.
+    Error publish() noexcept;
+    Error reject(Command command, Error reason) noexcept;
+    Error transition(RoundState next, Command command) noexcept;
+    Error settle_recorded_result(Command command) noexcept;
+    Error refund_pending_round(FaultCode fault, Command command) noexcept;
+
+    IWheel& wheel_;
+    IStorage& storage_;
+    Snapshot current_{};
+    JournalCommit pending_{}; // Preallocated staging space, not a large tick() stack local.
+    RuntimeStatus status_{RuntimeStatus::Uninitialized};
+    TickMs spin_started_ms_{0};
+    bool motion_seen_{false};
+};
+
+} // namespace mini_etg
