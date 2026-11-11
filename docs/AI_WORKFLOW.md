@@ -467,3 +467,36 @@ power loss. The test-only journal and its failpoints remain available separately
 The full `pio test -e native` run passed **123 cases, 0 failures** across seven
 suites: all 101 earlier cases plus 14 shared simulator and 8 session-journal cases.
 No native production failure was observed during this phase.
+
+## 2026-11-11 — Phase 3 CLI and executable checks
+
+Implemented `sim/src/main.cpp` and a standard-library-only Python build wrapper.
+The CLI accepts `--seed`, `--rounds`, `--lucky-mode` and `--inject-fault`, rejects
+unknown/duplicate/invalid options before starting, and runs up to 10,000 attempted
+rounds. Eight seats start with 1000 credits each; no automatic loads are made.
+Wheel, Lucky and bot choices use separate recorded seeds. Virtual time advances
+without sleeping; output is read from the real engine and its committed events.
+
+The CLI allocates `9 + 26 × rounds` event slots before initialization, enough for
+funding, eight accepted bets, all settlements, Lucky reveal, state changes, one
+recovery event and return to Idle. It prints actual state paths, sequence ranges,
+Lucky draws, results or void reasons, per-seat stake/gross/refund/net/credits and
+final meters. Each round checks conservation. Fault injection applies to round 1
+only; `power-loss` invokes recovery before Result against the surviving RAM journal.
+Expected WheelError refunds are distinguished from storage failures.
+
+Ran a three-round Lucky session with seed 42 successfully. Also saved a three-round
+Lucky ball-timeout demo: the first round returned every stake, the next two settled,
+and final seat credits 7980 plus house result 20 equalled the starting 8000.
+
+The first CLI test run passed 8 of 9 cases. The remaining test expected a bankrupt
+seat within 500 rounds, but that seed left all seats funded; this was an invalid
+coverage assumption, not a production failure. The same seed was retained and the
+run extended to the supported maximum 10,000 rounds, reaching skips from round 871.
+All **9 CLI checks then passed**, independently verifying printed payouts, refunds,
+credits, event ranges and final meters, plus strict arguments, reproducibility,
+wheel alignment across modes/faults, and every injection in both modes.
+
+Independent read-only reviews of the shared components, CLI, journal capacity and
+fault handling found no additional concrete defect. No core game rule or payout
+implementation was duplicated into the CLI or Python launcher.
