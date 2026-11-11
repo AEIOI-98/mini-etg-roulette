@@ -183,3 +183,21 @@ This newly found issue is corrected at the design level, not runtime-tested.
 The two earlier findings and the new cancellation finding are resolved in the
 proposal. `pio test -e native` remains pending the authorized implementation and
 native test setup; Phase 1 is not complete. No runtime behavior is claimed proven.
+
+## 2026-11-11 — Follow-up code review
+
+The user requested another bug review. The assistant reviewed the public headers
+and Phase 1/3B contracts at commit `3ba56e5`. Two fresh AI reviewers independently
+checked the core API and cross-phase consistency without receiving the prior
+conversation history.
+
+No new actionable correctness findings were established. The review checked
+observation-time ordering and deadlines, bounded wheel batches, resolution counter
+reserves, accounting/cancellation boundaries, reload settlement, single-writer
+browser ownership and exact-integer bridge semantics. The earlier corrections
+remain consistent with the stated requirements.
+
+This was a contract/code-inspection review. There are still no runtime function
+bodies or native game tests. The unchanged header declarations were not compiled
+again; their earlier independent C++17 syntax checks remain the latest compiler
+validation. No game behavior was exercised. Only this workflow log was changed.
