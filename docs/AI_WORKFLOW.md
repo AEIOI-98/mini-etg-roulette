@@ -306,3 +306,37 @@ The implementation was saved in separate logical commits for domain/build,
 ledger/storage, engine/recovery and documentation. The assistant stopped at the
 Phase 1 review boundary. No multiplier implementation, CLI, browser application,
 firmware, hosted demo or real-device durability test was completed or claimed.
+
+## 2026-11-11 — Approved Phase 2: Lucky Numbers and probability model
+
+After the Phase 1 handoff, the user said "proceed". The assistant continued with
+Phase 2 while retaining the stop-for-review boundary before Phase 3. Work was
+split among core selection/payout implementation, independent math and engine
+integration tests, and the analysis tooling; the assistant integrated the feature.
+
+The implementation makes multiplier semantics explicit: 50× means 50 times the
+stake returned in total, replacing the reduced straight-up gross return. It is
+not multiplied by base odds and is not added to another payout. Only straights
+change. Default Lucky mode uses 29:1 base profit, a uniform count from one through
+five distinct numbers, and gross multipliers 50/100/200/500 with weights
+48/30/20/2. The mode is off by default.
+
+The new Lucky API validates configurations and recorded draws, uses rejection
+sampling and a partial Fisher–Yates shuffle, provides base/maximum/recorded payout
+helpers, and calculates analytical RTP and variance. Number selection is uniform
+without replacement; multiplier tickets are independent draws. All ledger
+amounts remain int64; floating point is confined to probability analysis.
+
+Independent calculation confirmed E[K]=3, E[M]=104, and exact default RTP36/37.
+It also identified an important verification constraint: ten million fixed-number
+unit bets have a roughly ±0.4765 percentage-point 95% interval, wider than the
+requested analytical ±0.1-point tuning target. The analysis therefore reports
+that sampling uncertainty and also measures a clearly labeled 37-straight
+portfolio, treating spins rather than its correlated bets as independent samples.
+No seeds are retried to improve the reported RTP.
+
+All 15 new Lucky domain test cases passed, including every37×100 pocket/ticket
+choice, all1,332 ordered distinct pairs, all count ranges, seeded draws, every
+straight outcome/multiplier combination, unchanged non-straight payouts, maximum
+uint32 weight totals, uint16 multiplier65535, checked payout overflow, and
+analytical formulas compared against independently enumerated expected values.
