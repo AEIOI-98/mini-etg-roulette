@@ -1,5 +1,6 @@
 #include "browser_storage.hpp"
 #include "mini_etg/sim/journal.hpp"
+#include "mini_etg/wheel.hpp"
 #include <emscripten.h>
 #include <algorithm>
 
@@ -8,6 +9,38 @@ namespace {
 constexpr std::uint32_t magic = 0x31475445; // "ETG1", little endian.
 constexpr std::size_t capacity = 8192;
 constexpr int maximum_bytes = 1024 * 1024;
+
+// These fields are used as array indices and monetary amounts while projecting
+// history. A checksum detects a damaged write; it does not validate a schema.
+bool valid_payload(const Event& event, const Snapshot& latest) {
+    if (event.kind == EventKind::BetAccepted) {
+        BetSelection canonical{};
+        std::uint8_t odds{};
+        const TableLimits& limits = latest.config.limits;
+        if (canonicalize(event.selection, canonical) != Error::Ok ||
+            event.amount < limits.min_per_bet || event.amount > limits.max_per_bet ||
+            base_profit_odds(canonical.kind, latest.config.lucky, odds) != Error::Ok ||
+            odds != event.profit_odds) return false;
+        for (std::size_t i = 0; i < canonical.numbers.size(); ++i) {
+            if (canonical.numbers[i].value != event.selection.numbers[i].value) return false;
+        }
+    }
+    if (event.kind == EventKind::BetAccepted || event.kind == EventKind::BetSettled ||
+        event.kind == EventKind::BetCancelled || event.kind == EventKind::BetRefunded) {
+        if (event.bet_id == 0 || event.bet_id >= latest.next_bet_id || event.amount < 0) return false;
+    }
+    if (event.kind == EventKind::BetCancelled || event.kind == EventKind::BetRefunded ||
+        event.kind == EventKind::CreditLoaded || event.kind == EventKind::CreditWithdrawn) {
+        if (event.amount <= 0) return false;
+    }
+    if (event.kind == EventKind::ResultRecorded || event.kind == EventKind::BetSettled) {
+        Number number{};
+        if (number_at(event.pocket, number) != Error::Ok || number.value != event.number.value)
+            return false;
+    }
+    return event.kind != EventKind::LuckyNumbersDrawn ||
+        (latest.config.lucky.enabled && validate_lucky_draw(latest.config.lucky, event.lucky) == Error::Ok);
+}
 
 // Read and decode once while the caller holds the origin's exclusive Web Lock.
 // A missing key, malformed data and a blocked storage API have different outcomes.
@@ -26,7 +59,7 @@ EM_JS(int, read_envelope, (std::uint8_t* out, int capacity_bytes), {
 
 EM_JS(int, replace_envelope, (const std::uint8_t* data, int length), {
     try {
-        let binary = '';
+        let binary = "";
         for (let i = 0; i < length; i += 16384)
             binary += String.fromCharCode(...HEAPU8.subarray(data + i, data + Math.min(i + 16384, length)));
         localStorage.setItem('mini-etg-roulette.journal.v1', btoa(binary));
@@ -73,7 +106,8 @@ Error BrowserStorage::restore() {
     for (Sequence sequence = 1; sequence <= latest_.last_sequence; ++sequence) {
         Event e{};
         wire::event(input, e);
-        if (!input.ok || !sim::valid_event_metadata(e) || e.sequence != sequence ||
+        if (!input.ok || !sim::valid_event_metadata(e) || !valid_payload(e, latest_) ||
+            e.sequence != sequence ||
             e.revision < previous || e.revision - previous > 1 || e.revision == 0 ||
             e.round_id > latest_.round.id || e.lucky.count > kMaxLuckyNumbers ||
             e.selection.count > e.selection.numbers.size()) return Error::StorageCorrupt;
@@ -104,6 +138,9 @@ Error BrowserStorage::commit(const JournalCommit& transaction) noexcept {
     const Error valid = sim::validate_journal_append(latest_.revision, latest_.last_sequence,
                                                      capacity, transaction);
     if (valid != Error::Ok) return valid;
+    for (std::size_t i = 0; i < transaction.events.count; ++i) {
+        if (!valid_payload(transaction.events.entries[i], transaction.next)) return Error::StorageCorrupt;
+    }
     Snapshot next = transaction.next;
     ResolutionReserve reserve{};
     required_resolution_reserve(next, reserve);
