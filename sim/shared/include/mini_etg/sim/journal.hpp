@@ -6,6 +6,11 @@
 
 namespace mini_etg::sim {
 
+// Shared by the RAM and browser journals before publishing an append.
+bool valid_event_metadata(const Event& event) noexcept;
+Error validate_journal_append(Revision previous_revision, Sequence previous_sequence,
+                              std::size_t capacity, const JournalCommit& transaction) noexcept;
+
 // A session-local journal using memory supplied by the caller. The buffer must
 // remain alive and exclusively owned by this journal until the journal is gone.
 // It survives Engine recreation, but not process exit or physical power loss.

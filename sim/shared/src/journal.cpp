@@ -3,19 +3,17 @@
 #include <limits>
 
 namespace mini_etg::sim {
-namespace {
 
 bool valid_event_metadata(const Event& event) noexcept {
-    return static_cast<unsigned>(event.kind) <= static_cast<unsigned>(EventKind::LuckyNumbersDrawn)
-        && static_cast<unsigned>(event.command) <= static_cast<unsigned>(Command::AcknowledgeFault)
+    return static_cast<unsigned>(event.kind) <= static_cast<unsigned>(EventKind::BetCancelled)
+        && static_cast<unsigned>(event.command) <= static_cast<unsigned>(Command::RepeatLastBets)
         && static_cast<unsigned>(event.from) <= static_cast<unsigned>(RoundState::Fault)
         && static_cast<unsigned>(event.to) <= static_cast<unsigned>(RoundState::Fault)
-        && static_cast<unsigned>(event.error) <= static_cast<unsigned>(Error::AccountingMismatch)
+        && static_cast<unsigned>(event.error) <= static_cast<unsigned>(Error::NoBets)
         && static_cast<unsigned>(event.fault) <= static_cast<unsigned>(FaultCode::OperatorInjected)
         && event.seat < kSeatCount;
 }
 
-} // namespace
 
 MemoryJournal::MemoryJournal(Event* buffer, std::size_t capacity) noexcept
     : events_(buffer), capacity_(capacity) {
@@ -42,15 +40,13 @@ Error MemoryJournal::read_event(Sequence sequence, Event& out) noexcept {
     return Error::Ok;
 }
 
-Error MemoryJournal::commit(const JournalCommit& transaction) noexcept {
-    if (status_ != Error::Ok) return status_;
+Error validate_journal_append(Revision previous_revision, Sequence previous_sequence,
+                              std::size_t capacity, const JournalCommit& transaction) noexcept {
     const Snapshot& next = transaction.next;
     const EventBatch& batch = transaction.events;
     if (validate_snapshot(next) != Error::Ok || batch.count == 0 ||
         batch.count > kMaxEventsPerCommit) return Error::StorageCorrupt;
 
-    const Revision previous_revision = present_ ? latest_.revision : 0;
-    const Sequence previous_sequence = present_ ? latest_.last_sequence : 0;
     constexpr auto maximum = std::numeric_limits<std::uint64_t>::max();
     if (previous_revision == maximum || batch.count > maximum - previous_sequence) {
         return Error::CounterExhausted;
@@ -69,14 +65,22 @@ Error MemoryJournal::commit(const JournalCommit& transaction) noexcept {
     if (reserve_error != Error::Ok) return reserve_error;
     if (maximum - next.revision < reserve.revisions ||
         maximum - next.last_sequence < reserve.event_sequences) return Error::CounterExhausted;
-    if (batch.count > capacity_ - count_ ||
-        reserve.event_sequences > capacity_ - count_ - batch.count) return Error::StorageFull;
+    if (previous_sequence > capacity || batch.count > capacity - previous_sequence ||
+        reserve.event_sequences > capacity - previous_sequence - batch.count) return Error::StorageFull;
+    return Error::Ok;
+}
+
+Error MemoryJournal::commit(const JournalCommit& transaction) noexcept {
+    if (status_ != Error::Ok) return status_;
+    const Error check = validate_journal_append(latest_.revision, count_, capacity_, transaction);
+    if (check != Error::Ok) return check;
+    const auto& batch = transaction.events;
 
     // All validation precedes publication. Copies cannot fail, call back, or
     // allocate. One caller owns this adapter, so a reader sees the whole commit.
     for (std::size_t i = 0; i < batch.count; ++i) events_[count_ + i] = batch.entries[i];
     count_ += batch.count;
-    latest_ = next;
+    latest_ = transaction.next;
     present_ = true;
     return Error::Ok;
 }
