@@ -21,7 +21,7 @@ struct EngineConfig {
 struct Meters {
     Credits credits_in{0};   // External credit loads, including initial funding.
     Credits credits_out{0};  // External withdrawals only.
-    std::uint64_t games_played{0};
+    std::uint64_t games_played{0}; // Non-void completed rounds with active stakes at close.
     std::uint64_t games_won{0}; // Participating, completed rounds with net profit > 0.
 };
 

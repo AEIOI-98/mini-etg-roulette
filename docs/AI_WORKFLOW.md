@@ -149,3 +149,37 @@ The proposal gives exact Phase 1 budgets by state and uses subtraction-based
 overflow-safe checks. Exhaustion refuses the ordinary commit without attempting
 another rejection log, leaving the reserved resolution path available. The
 earlier counter finding is corrected in the proposal; runtime tests are pending.
+
+### New finding and correction
+
+The browser review found that undo/clear could remove an offsetting stake and
+leave another seat's possible payout outside int64 house accounting range. A
+concrete example uses house result `-INT64_MAX + 35`, a 35-credit black bet, and
+a two-credit straight bet on red number 1. All outcomes fit before cancellation;
+cancelling black makes a number-1 win produce house result `-INT64_MAX - 35`.
+
+Updated the proposed undo/clear contract to preflight all 37 remaining settlements
+across all seats, house accounting and meters, then commit atomically or reject
+with `ArithmeticOverflow`. Added this boundary case to the planned native tests
+and clarified that a fully cleared seat does not increment games played/won.
+This newly found issue is corrected at the design level, not runtime-tested.
+
+### Verification actually performed
+
+- All eight public headers passed independent C++17 syntax checks with warnings
+  as errors, exceptions disabled and RTTI disabled. No function implementations
+  were linked or executed.
+- An independent scratch arithmetic model enumerated 99 terminal paths for zero,
+  one and 128 bets, including near-uint64-maximum counters; the documented reserve
+  table covered each path and rejected attempts to spend protected IDs.
+- A scratch timing model checked 20 delayed/equal/late, timestamp-order and timer
+  rollover scenarios. The corrected rule preserved timely reports and rejected
+  late reports. This verifies the proposed rule, not an existing engine function.
+- Independently checked the cancellation example, including valid initial seat
+  balances and conservation for each possible payout class before cancellation.
+- Both reviewers inspected the revised contracts and reported no remaining
+  concrete blockers. Documentation links, code fences and whitespace checks passed.
+
+The two earlier findings and the new cancellation finding are resolved in the
+proposal. `pio test -e native` remains pending the authorized implementation and
+native test setup; Phase 1 is not complete. No runtime behavior is claimed proven.

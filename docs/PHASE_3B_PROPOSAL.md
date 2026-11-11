@@ -107,6 +107,22 @@ same journal transaction and adds cancellation events; it never deletes history
 or reuses a bet ID. Cancelled bets do not participate in exposure, settlement or
 RTP. The proposed sixteen-bet limit becomes sixteen **active** placements per seat.
 
+Undo and clear must also preflight the proposed remaining portfolio against all
+37 results for all seats, house result and meters, then commit all or none.
+Removing a bet can remove a losing stake that offsets another seat's winning
+return. Thus returning a stake can make a future settlement overflow even though
+the refund itself fits. If any resulting settlement is unsafe, return
+`ArithmeticOverflow` without cancelling bets or moving credits; display the
+rejection and retain the existing chips. Preserve terminal journal reserves too.
+
+Boundary case for the native tests: let `M = INT64_MAX`, current house result be
+`-M + 35`, seat credits at round opening be `[35, M - 70, 0, ...]`, and accept a
+35-credit black bet for seat 0 plus a two-credit straight bet on red number 1 for
+seat 1. Every outcome fits before cancellation. Cancelling the black bet would
+make a number-1 win leave the house at `-M - 35`, below `INT64_MIN`. Reject that
+cancellation atomically. A seat whose bets are all cleared before closing has
+not played a game; neither games-played nor games-won increases for it.
+
 Repeat submits the pattern of selections/stakes from that seat's last completed,
 non-void participating round. Store that pattern in the journal so it survives
 new-round clearing and reload. Validate the entire repeated pattern against
@@ -216,7 +232,10 @@ Required checks alongside `pio test -e native`:
 2. Exact int64/uint64 bridge and storage round trips above `2^53`, including
    negative house result. Exercise adapter errors without lost/double credits.
 3. Undo/clear/repeat success, atomic rejection, closing-race rejection and recovery.
-   Exercise every bet hit area, overlapping edge region, chip value and limit.
+   Include removal of offsetting bets near the house/seat arithmetic limits,
+   checking all remaining seats and unchanged state on rejection. Fully cleared
+   seats must not increment game meters. Exercise every bet hit area, overlapping
+   edge region, chip value and limit.
 4. All 37 animation endpoints, resize, reduced motion, hidden-tab handling and
    skipped animation leave the recorded outcome and payments unchanged.
 5. Reload at every state and on both sides of commit boundaries, repeatedly;

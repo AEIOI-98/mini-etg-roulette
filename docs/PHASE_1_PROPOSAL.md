@@ -272,9 +272,11 @@ transfers are allowed only in `Idle`; they change the next round's starting tota
 `Idle` can retain the previous result/bets for display, so its historical
 `opening_total` is excluded from the current-round accounting check.
 
-Proposed meter meanings: a seat plays a game only if it placed a bet in a
-non-void round. It wins a game if its total gross returns exceed its total stakes.
-Voided rounds increase neither counter. Payout commits update meters once.
+Proposed meter meanings: a seat plays a game only if it has active stakes when
+bets close in a non-void round. It wins a game if its total gross returns exceed
+its total settled stakes. Voided rounds increase neither counter. Payout commits
+update meters once. In Phase 3B, a fully cleared seat therefore does not count as
+having played merely because it submitted a bet earlier.
 
 ## Append-only journal and recovery
 
