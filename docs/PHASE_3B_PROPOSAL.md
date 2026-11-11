@@ -114,11 +114,12 @@ current credits, limits, existing bets, capacity and payout headroom, then accep
 all or none in one commit. It adds to existing bets; a second repeat is subject
 to the same cumulative limits. Undo after repeat removes its most recent placement.
 
-The Phase 1 review findings remain prerequisites: observation timestamps must
-prevent queued timely wheel reports being falsely timed out, and every ordinary
-commit must preserve event/revision values needed for terminal resolution.
-Extend event types, snapshots, reserve calculations and tests for cancellation
-and repeat when these headers are revised.
+The Phase 1 wheel contract now uses bounded batches with observation timestamps
+to protect timely queued reports. Its runtime boundary tests remain prerequisites.
+The open counter-reserve finding requires every ordinary commit to preserve
+event/revision values needed for terminal resolution. Extend event types,
+snapshots, reserve calculations and tests for cancellation and repeat when these
+headers are revised.
 
 ## Operator dashboard and reload recovery
 

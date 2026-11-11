@@ -5,10 +5,9 @@ only. Default field values and fixed capacity constants are included so the type
 are readable. No Phase 1 game behavior has been implemented.
 
 The user has since added [Phase 3B and Phase 4–5 extensions](PHASE_3B_PROPOSAL.md).
-Its core API implications are recorded there; the existing headers are still the
-original proposal. The two issues from the bug review (sensor observation times
-and terminal counter reservations) remain open and must be resolved before the
-affected implementation is accepted.
+Its core API implications are recorded there. The headers remain a proposal;
+sensor observation timing has been corrected at the contract level. The terminal
+counter reservation finding remains open until its corresponding revision.
 
 ## Folder structure
 
@@ -182,17 +181,33 @@ stateDiagram-v2
 is no hidden grace period. Commands enforce their own guards: there is no public
 state setter or direct result setter.
 
-`tick(now_ms)` polls `IWheel` only during `Spinning`. A valid result must have the
-current round ID, an index 0..36, and prior `MotionDetected` evidence. Missing
-rotation by the no-spin deadline faults; missing a ball by the ball deadline
-faults. Both deadlines start at `start_spin`. Malformed signals/fault codes,
-out-of-range results, and stale round IDs fault as invalid sensor input.
-The adapter validates revolution pulse counts; the core validates its reports.
+`tick(now_ms)` polls `IWheel` only during `Spinning`. `WheelReport` includes
+`observed_at_ms`, captured when the observation happens in the same uint32 clock
+as `start_spin`; a delayed poll must not substitute its own time. `poll()` returns
+a fixed `WheelBatch` of at most two reports: the first motion observation and one
+terminal settled-ball or fault observation. It returns all queued reports through
+`now_ms`, in observation order, once; later observations stay queued. Zero count
+means no update. Raw pocket pulses stay inside the adapter, so draining a batch
+cannot become an unbounded loop. Lost raw sensor input produces `InvalidSensor`.
+
+A valid result needs the current round ID, an index 0..36, and prior timely motion
+evidence. The adapter validates revolution pulse counts. The core validates batch
+count, signal/fault codes, result range, round IDs and timestamps. Relative to spin
+start, observations must be nondecreasing across batches and no later than the
+current poll cutoff. A future/pre-start/out-of-order timestamp is invalid input.
 
 Timing is passed in as uint32 milliseconds, never read from Arduino APIs. Require
-`0 < no_spin_timeout_ms < ball_timeout_ms < 2^31`, frequent ticks, and unsigned
-elapsed-time subtraction to handle timer wrap. Timeout/report ordering will be
-explicit in tests: at or beyond a due deadline, the timeout takes precedence.
+`0 < no_spin_timeout_ms < ball_timeout_ms < 2^31`, elapsed intervals and tick gaps
+below `2^31`, and unsigned elapsed-time subtraction to handle timer wrap.
+Evaluate each queued report against the missing-event deadlines at its observation
+time, then apply any still-missing-event timeout at `now_ms`. An observation exactly
+at its deadline is late. A late first-motion report causes `NoSpin` even if a ball
+report is already queued. Timely motion followed by a timely ball is accepted even
+when the poll itself occurs after the ball deadline.
+
+For example, motion observed at 1,999 ms must be accepted by a poll at 2,000 ms
+with a 2,000 ms no-spin deadline. The same rule protects a ball observed just
+before its deadline. A result cannot gain extra time merely by being polled late.
 
 Journal `Spinning` before calling `wheel.start()`. If that hardware call fails,
 refund through `Fault`. If power fails between those actions, restart also refunds.
@@ -350,7 +365,10 @@ Each logical implementation commit will include its native tests and must pass
 4. Guarded rounds, seats, accounting and faults. Exercise every command/state
    pair, transitions/rejections, eight seats, closing behavior, deadlines and
    timer rollover, stale/malformed sensor reports, no-spin and invalid-index
-   refunds, and accounting after every round.
+   refunds, and accounting after every round. Include motion/ball observations
+   just before a deadline but polled after it, exactly-at/after-deadline reports,
+   simultaneous buffered motion/result, late motion followed by a ball, future or
+   reversed timestamps, invalid batch counts and sensor queue overflow.
 5. Recovery. Crash both before and after every durable state change, every bet
    acceptance, result recording, settlement, refund, transfer, and rejection
    commit. Restart repeatedly; check credits, meters, escrow, resolution, event

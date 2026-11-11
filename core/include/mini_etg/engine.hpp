@@ -44,7 +44,10 @@ public:
     // uncertain commit (recover first and inspect the journal).
     Error place_bet(const BetRequest& request, BetId& accepted_id) noexcept;
     Error start_spin(TickMs now_ms) noexcept; // BetsClosed -> Spinning, then wheel.start.
-    Error tick(TickMs now_ms) noexcept;      // Spinning only; sole result input: IWheel.
+    // Spinning only. Process the bounded IWheel batch by observation time before
+    // timing out missing events at now_ms. At a deadline, an observation is late.
+    // All elapsed intervals must be below 2^31 ms, including gaps between ticks.
+    Error tick(TickMs now_ms) noexcept;
     Error settle() noexcept;          // Result -> Payout; pay all seats atomically.
     Error finish_round() noexcept;    // Payout -> Idle; retain last round for display.
 
@@ -67,6 +70,7 @@ private:
     JournalCommit pending_{}; // Preallocated staging space, not a large tick() stack local.
     RuntimeStatus status_{RuntimeStatus::Uninitialized};
     TickMs spin_started_ms_{0};
+    TickMs last_observed_elapsed_ms_{0}; // Enforce ordering across poll batches.
     bool motion_seen_{false};
 };
 

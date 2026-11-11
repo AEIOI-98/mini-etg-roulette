@@ -121,3 +121,20 @@ deployment was performed, and no new public header declarations were added.
 The reviewer inspected the saved additions and found no coverage or consistency
 blockers. Local documentation links, paired code fences and `git diff --check`
 passed. No game or browser tests were run for this documentation-only change.
+
+## 2026-11-11 — Requested fixes and another bug review
+
+The user asked to fix the earlier findings and look for new bugs. This authorizes
+corrections to the header/design proposal; the original runtime-implementation
+gate remains in place. Two AI reviewers independently audited the timing/reserve
+contracts and the expanded browser plan.
+
+### Wheel timing correction
+
+Added observation timestamps to `WheelReport` and replaced single-report polling
+with a fixed two-report `WheelBatch`: first motion and one terminal observation.
+The contract now consumes queued observations by their capture times before
+timing out missing events at the poll time. It defines deadline equality, delayed
+polling, timestamp order, rollover limits and lost-input behavior. The engine
+declaration now tracks the last observed elapsed time across batches. The original
+timing finding is corrected in the proposal; runtime verification remains pending.
