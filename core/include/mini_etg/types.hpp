@@ -46,7 +46,8 @@ enum class Error : std::uint8_t {
     StorageIoError,
     StorageCorrupt,
     CommitOutcomeUnknown,
-    AccountingMismatch
+    AccountingMismatch,
+    NoBets // No active placement to cancel, or no completed pattern to repeat.
 };
 
 enum class RoundState : std::uint8_t {

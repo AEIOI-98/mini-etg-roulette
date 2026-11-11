@@ -24,6 +24,32 @@ bool same_selection(const BetSelection& a, const BetSelection& b) noexcept {
     return true;
 }
 
+bool valid_selection(const BetSelection& selection) noexcept {
+    BetSelection canonical{};
+    return canonicalize(selection, canonical) == Error::Ok && same_selection(selection, canonical);
+}
+
+bool valid_pattern(const BetPattern& pattern, const TableLimits& limits) noexcept {
+    if (pattern.count > pattern.bets.size()) return false;
+    Credits total = 0;
+    for (std::size_t i = 0; i < pattern.count; ++i) {
+        const PatternBet& bet = pattern.bets[i];
+        if (bet.stake < limits.min_per_bet || bet.stake > limits.max_per_bet ||
+            !valid_selection(bet.selection) ||
+            checked_add(total, bet.stake, total) != Error::Ok ||
+            total > limits.max_total_per_seat) return false;
+
+        Credits matching = bet.stake;
+        for (std::size_t j = 0; j < i; ++j) {
+            const PatternBet& earlier = pattern.bets[j];
+            if (same_selection(earlier.selection, bet.selection) &&
+                (checked_add(matching, earlier.stake, matching) != Error::Ok ||
+                 matching > limits.max_per_bet)) return false;
+        }
+    }
+    return true;
+}
+
 bool valid_round_shape(const Round& round) noexcept {
     if (!valid_state(round.state) || !valid_fault(round.fault) ||
         static_cast<unsigned>(round.resolution) > static_cast<unsigned>(Resolution::Refunded) ||
@@ -170,11 +196,15 @@ Error check_accounting(const Snapshot& snapshot) noexcept {
 }
 
 Error validate_snapshot(const Snapshot& snapshot) noexcept {
-    if (snapshot.format_version != 2 || snapshot.revision == 0 ||
+    if (snapshot.format_version != 3 || snapshot.revision == 0 ||
         snapshot.last_sequence < snapshot.revision || snapshot.next_bet_id == 0 ||
         validate_config(snapshot.config) != Error::Ok ||
         !valid_round_shape(snapshot.round) || !valid_lucky_phase(snapshot)) {
         return Error::StorageCorrupt;
+    }
+
+    for (const BetPattern& pattern : snapshot.last_bets) {
+        if (!valid_pattern(pattern, snapshot.config.limits)) return Error::StorageCorrupt;
     }
 
     std::array<Credits, kSeatCount> seat_stakes{};
@@ -189,10 +219,8 @@ Error validate_snapshot(const Snapshot& snapshot) noexcept {
             return Error::StorageCorrupt;
         }
         previous_id = bet.id;
-        BetSelection canonical{};
         std::uint8_t expected_odds = 0;
-        if (canonicalize(request.selection, canonical) != Error::Ok ||
-            !same_selection(request.selection, canonical) ||
+        if (!valid_selection(request.selection) ||
             base_profit_odds(request.selection.kind, snapshot.config.lucky, expected_odds) != Error::Ok ||
             bet.profit_odds != expected_odds) {
             return Error::StorageCorrupt;

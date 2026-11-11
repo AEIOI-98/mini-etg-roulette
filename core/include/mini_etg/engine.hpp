@@ -45,6 +45,10 @@ public:
     // accepted_id is unchanged on failure; the caller must not blindly retry an
     // uncertain commit (recover first and inspect the journal).
     Error place_bet(const BetRequest& request, BetId& accepted_id) noexcept;
+    // BetsOpen only. Edits publish their entire stake change and audit batch together.
+    Error undo_last_bet(SeatId seat) noexcept;
+    Error clear_bets(SeatId seat) noexcept;
+    Error repeat_last_bets(SeatId seat) noexcept;
     Error start_spin(TickMs now_ms) noexcept; // BetsClosed -> Spinning, then wheel.start.
     // Spinning only. Process the bounded IWheel batch by observation time before
     // timing out missing events at now_ms. At a deadline, an observation is late.
@@ -63,6 +67,8 @@ private:
     void begin_commit() noexcept;
     Error publish() noexcept;
     Error reject(Command command, Error reason) noexcept;
+    Error cancel_bets(SeatId seat, Command command) noexcept;
+    Error publish_bet_edit(Command command, Error staged) noexcept;
     Error transition(RoundState next, Command command) noexcept;
     Error settle_recorded_result(Command command) noexcept;
     Error refund_pending_round(FaultCode fault, Command command) noexcept;

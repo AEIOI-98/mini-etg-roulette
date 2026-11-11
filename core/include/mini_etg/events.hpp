@@ -9,13 +9,13 @@ namespace mini_etg {
 enum class Command : std::uint8_t {
     Initialize, Recover, CreditIn, CreditOut, OpenBets, BeginClosing,
     CloseBets, PlaceBet, StartSpin, Tick, Settle, FinishRound, RaiseFault,
-    AcknowledgeFault
+    AcknowledgeFault, UndoLastBet, ClearBets, RepeatLastBets
 };
 
 enum class EventKind : std::uint8_t {
     Initialized, StateChanged, BetAccepted, BetSettled, BetRefunded,
     CreditLoaded, CreditWithdrawn, CommandRejected, ResultRecorded, RecoveryApplied,
-    LuckyNumbersDrawn
+    LuckyNumbersDrawn, BetCancelled
 };
 
 // Flat fields keep the educational format simple; unused fields are zero/default.

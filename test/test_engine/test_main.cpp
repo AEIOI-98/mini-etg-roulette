@@ -651,7 +651,7 @@ void test_fault_after_result_cannot_replace_a_loss_with_refund() {
     TEST_ASSERT_EQUAL_INT64(990, engine.snapshot().seats[0].credits);
 }
 
-enum class Attempt { Open, BeginClosing, Close, Start, Tick, Settle, Finish, Fault, Acknowledge, CreditIn, CreditOut, Place };
+enum class Attempt { Open, BeginClosing, Close, Start, Tick, Settle, Finish, Fault, Acknowledge, CreditIn, CreditOut, Place, Undo, Clear, Repeat };
 
 bool allowed(Attempt attempt, RoundState state) {
     switch (attempt) {
@@ -665,6 +665,7 @@ bool allowed(Attempt attempt, RoundState state) {
     case Attempt::Fault: return state == RoundState::Idle || state == RoundState::BetsOpen || state == RoundState::BetsClosing || state == RoundState::BetsClosed || state == RoundState::Spinning;
     case Attempt::Acknowledge: return state == RoundState::Fault;
     case Attempt::CreditIn: case Attempt::CreditOut: return state == RoundState::Idle;
+    case Attempt::Undo: case Attempt::Clear: case Attempt::Repeat:
     case Attempt::Place: return state == RoundState::BetsOpen;
     }
     return false;
@@ -684,6 +685,9 @@ Error attempt_command(Engine& engine, Attempt attempt) {
     case Attempt::Acknowledge: return engine.acknowledge_fault();
     case Attempt::CreditIn: return engine.credit_in(0, 1);
     case Attempt::CreditOut: return engine.credit_out(0, 1);
+    case Attempt::Undo: return engine.undo_last_bet(0);
+    case Attempt::Clear: return engine.clear_bets(0);
+    case Attempt::Repeat: return engine.repeat_last_bets(0);
     case Attempt::Place: return engine.place_bet(straight(0, 1, 1), ignored);
     }
     return Error::InvalidConfig;
@@ -692,7 +696,7 @@ Error attempt_command(Engine& engine, Attempt attempt) {
 void test_every_illegal_command_state_pair_is_rejected_and_logged() {
     for (int state_value = 0; state_value <= static_cast<int>(RoundState::Fault); ++state_value) {
         const auto state = static_cast<RoundState>(state_value);
-        for (int attempt_value = 0; attempt_value <= static_cast<int>(Attempt::Place); ++attempt_value) {
+        for (int attempt_value = 0; attempt_value <= static_cast<int>(Attempt::Repeat); ++attempt_value) {
             const auto attempt = static_cast<Attempt>(attempt_value);
             if (allowed(attempt, state)) continue;
             storage.reset();
@@ -1087,6 +1091,249 @@ void test_seeded_multi_round_accounting_survives_mixed_recovery_paths() {
     }
 }
 
+void test_edits_affect_only_active_bets_for_one_seat() {
+    Engine engine(wheel, storage);
+    initialize(engine);
+    EXPECT_ERROR(Error::Ok, engine.open_bets());
+    EXPECT_ERROR(Error::NoBets, engine.undo_last_bet(0));
+    EXPECT_ERROR(Error::NoBets, engine.clear_bets(0));
+    EXPECT_ERROR(Error::NoBets, engine.repeat_last_bets(0));
+    EXPECT_ERROR(Error::InvalidSeat, engine.undo_last_bet(kSeatCount));
+    EXPECT_ERROR(Error::InvalidSeat, engine.clear_bets(kSeatCount));
+    EXPECT_ERROR(Error::InvalidSeat, engine.repeat_last_bets(kSeatCount));
+
+    const BetId first = place(engine, straight(0, 32, 3));
+    const BetId second = place(engine, straight(0, 32, 7));
+    const BetId other = place(engine, straight(1, 32, 5));
+    EXPECT_ERROR(Error::Ok, engine.undo_last_bet(0));
+    const Event undo = last_event(engine);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(EventKind::BetCancelled), static_cast<int>(undo.kind));
+    TEST_ASSERT_EQUAL_UINT64(second, undo.bet_id);
+    TEST_ASSERT_EQUAL_INT64(7, undo.amount);
+    TEST_ASSERT_EQUAL_UINT64(first, engine.snapshot().round.bets[0].id);
+    TEST_ASSERT_EQUAL_UINT64(other, engine.snapshot().round.bets[1].id);
+    TEST_ASSERT_EQUAL_INT64(8, engine.snapshot().round.escrow);
+    TEST_ASSERT_EQUAL_INT64(997, engine.snapshot().seats[0].credits);
+    // Reusing freed capacity must never reuse a cancelled placement's ID.
+    for (std::size_t i = 1; i < kMaxBetsPerSeat; ++i)
+        TEST_ASSERT_TRUE(place(engine, straight(0, 32, 1)) > other);
+    const Snapshot before = engine.snapshot();
+    EXPECT_ERROR(Error::Ok, engine.clear_bets(0));
+    TEST_ASSERT_EQUAL_UINT64(before.revision + 1, engine.snapshot().revision);
+    TEST_ASSERT_EQUAL_UINT64(before.last_sequence + kMaxBetsPerSeat, engine.snapshot().last_sequence);
+    TEST_ASSERT_EQUAL_UINT64(1, engine.snapshot().round.bet_count);
+    TEST_ASSERT_EQUAL_UINT64(other, engine.snapshot().round.bets[0].id);
+    TEST_ASSERT_EQUAL_INT64(1000, engine.snapshot().seats[0].credits);
+    start(engine);
+    record_result(engine);
+    EXPECT_ERROR(Error::Ok, engine.settle());
+    TEST_ASSERT_EQUAL_UINT64(0, engine.snapshot().seats[0].meters.games_played);
+    TEST_ASSERT_EQUAL_UINT64(0, engine.snapshot().seats[0].meters.games_won);
+    TEST_ASSERT_EQUAL_UINT8(0, engine.snapshot().last_bets[0].count);
+    TEST_ASSERT_EQUAL_UINT8(1, engine.snapshot().last_bets[1].count);
+}
+
+void test_repeat_persists_across_recovery_empty_and_void_rounds() {
+    Engine engine(wheel, storage);
+    initialize(engine);
+    open_with_bet(engine, 1, 3);
+    place(engine, straight(0, 2, 7));
+    start(engine);
+    record_result(engine);
+    // Completing payout on boot also saves this seat's two placements.
+    Engine restarted(wheel, storage);
+    RecoveryReport recovery{};
+    EXPECT_ERROR(Error::Ok, restarted.recover(recovery));
+    EXPECT_ERROR(Error::Ok, restarted.finish_round());
+    EXPECT_ERROR(Error::Ok, restarted.open_bets());
+    place(restarted, straight(0, 7, 2));
+    EXPECT_ERROR(Error::Ok, restarted.recover(recovery));
+    EXPECT_ERROR(Error::Ok, restarted.acknowledge_fault());
+    EXPECT_ERROR(Error::Ok, restarted.open_bets());
+    place(restarted, straight(1, 32, 5));
+    start(restarted);
+    record_result(restarted);
+    EXPECT_ERROR(Error::Ok, restarted.settle());
+    EXPECT_ERROR(Error::Ok, restarted.finish_round());
+
+    EXPECT_ERROR(Error::Ok, restarted.open_bets());
+    const auto first = place(restarted, straight(0, 0, 1));
+    const Snapshot before = restarted.snapshot();
+    EXPECT_ERROR(Error::Ok, restarted.repeat_last_bets(0));
+    TEST_ASSERT_EQUAL_UINT64(before.revision + 1, restarted.snapshot().revision);
+    TEST_ASSERT_EQUAL_UINT64(before.last_sequence + 2, restarted.snapshot().last_sequence);
+    TEST_ASSERT_EQUAL_INT64(11, restarted.snapshot().round.escrow);
+    TEST_ASSERT_EQUAL_INT64(979, restarted.snapshot().seats[0].credits);
+    for (unsigned i = 1; i <= 2; ++i) {
+        const AcceptedBet& bet = restarted.snapshot().round.bets[i];
+        TEST_ASSERT_EQUAL_UINT64(first + i, bet.id);
+        TEST_ASSERT_EQUAL_UINT8(i, bet.request.selection.numbers[0].value);
+        Event event{};
+        EXPECT_ERROR(Error::Ok, storage.read_event(before.last_sequence + i, event));
+        TEST_ASSERT_EQUAL_INT(static_cast<int>(EventKind::BetAccepted), static_cast<int>(event.kind));
+        TEST_ASSERT_EQUAL_INT(static_cast<int>(Command::RepeatLastBets), static_cast<int>(event.command));
+        TEST_ASSERT_EQUAL_UINT64(restarted.snapshot().revision, event.revision);
+        TEST_ASSERT_EQUAL_UINT64(bet.id, event.bet_id);
+    }
+    EXPECT_ERROR(Error::Ok, restarted.undo_last_bet(0));
+    TEST_ASSERT_EQUAL_INT64(4, restarted.snapshot().round.escrow);
+    EXPECT_ERROR(Error::Ok, restarted.repeat_last_bets(0));
+    TEST_ASSERT_EQUAL_INT64(14, restarted.snapshot().round.escrow);
+    EXPECT_ERROR(Error::Ok, restarted.repeat_last_bets(1));
+    TEST_ASSERT_EQUAL_INT64(19, restarted.snapshot().round.escrow);
+}
+
+void test_repeat_late_error_rejects_whole_pattern() {
+    constexpr std::array<Error, 4> failures{Error::LimitExceeded, Error::BetCapacityReached,
+                                            Error::InsufficientCredits, Error::CounterExhausted};
+    for (Error expected : failures) {
+        storage.reset();
+        wheel.reset();
+        Engine engine(wheel, storage);
+        initialize(engine);
+        open_with_bet(engine, 1, 10);
+        place(engine, straight(0, 2, 20));
+        start(engine);
+        record_result(engine);
+        EXPECT_ERROR(Error::Ok, engine.settle());
+        EXPECT_ERROR(Error::Ok, engine.finish_round());
+        if (expected == Error::InsufficientCredits) EXPECT_ERROR(Error::Ok, engine.credit_out(0, 955));
+        if (expected == Error::CounterExhausted) {
+            Snapshot saved = engine.snapshot();
+            saved.next_bet_id = std::numeric_limits<BetId>::max() - 1;
+            storage.restore_for_test(saved);
+            RecoveryReport report{};
+            EXPECT_ERROR(Error::Ok, engine.recover(report));
+        }
+        EXPECT_ERROR(Error::Ok, engine.open_bets());
+        if (expected == Error::LimitExceeded) place(engine, straight(0, 2, 81));
+        if (expected == Error::BetCapacityReached) {
+            for (std::size_t i = 0; i < kMaxBetsPerSeat - 1; ++i) place(engine, straight(0, 3, 1));
+        }
+        const Snapshot before = engine.snapshot();
+        EXPECT_ERROR(expected, engine.repeat_last_bets(0));
+        expect_same_money(before, engine.snapshot());
+        TEST_ASSERT_EQUAL_UINT64(before.next_bet_id, engine.snapshot().next_bet_id);
+        TEST_ASSERT_EQUAL_UINT64(before.last_sequence + 1, engine.snapshot().last_sequence);
+        const Event event = last_event(engine);
+        TEST_ASSERT_EQUAL_INT(static_cast<int>(EventKind::CommandRejected), static_cast<int>(event.kind));
+        TEST_ASSERT_EQUAL_INT(static_cast<int>(Command::RepeatLastBets), static_cast<int>(event.command));
+    }
+}
+
+void test_removing_offsetting_stake_rechecks_all_outcomes_for_all_seats() {
+    constexpr Credits maximum = std::numeric_limits<Credits>::max();
+    Snapshot saved{};
+    saved.revision = saved.last_sequence = 1;
+    saved.house_result = -maximum + 35;
+    saved.seats[0].credits = 35;
+    saved.seats[1].credits = maximum - 70;
+    storage.restore_for_test(saved);
+    Engine engine(wheel, storage);
+    RecoveryReport recovery{};
+    EXPECT_ERROR(Error::Ok, engine.recover(recovery));
+    EXPECT_ERROR(Error::Ok, engine.open_bets());
+    BetSelection black{};
+    EXPECT_ERROR(Error::Ok, make_even_money_bet(BetKind::Black, black));
+    place(engine, {0, black, 35});
+    place(engine, straight(1, 1, 2));
+    const Snapshot before = engine.snapshot();
+    EXPECT_ERROR(Error::ArithmeticOverflow, engine.undo_last_bet(0));
+    EXPECT_ERROR(Error::ArithmeticOverflow, engine.clear_bets(0));
+    expect_same_money(before, engine.snapshot());
+    TEST_ASSERT_EQUAL_UINT64(before.next_bet_id, engine.snapshot().next_bet_id);
+    TEST_ASSERT_EQUAL_UINT64(before.last_sequence + 2, engine.snapshot().last_sequence);
+}
+
+void test_repeat_validates_headroom_for_complete_pattern() {
+    constexpr Credits maximum = std::numeric_limits<Credits>::max();
+    Snapshot saved{};
+    saved.revision = saved.last_sequence = 1;
+    saved.house_result = -maximum + 35;
+    saved.seats[0].credits = maximum - 35;
+    saved.seats[0].meters.games_played = 1;
+    auto& pattern = saved.last_bets[0];
+    pattern.count = 2;
+    pattern.bets[0] = {straight(0, 1, 2).selection, 2};
+    EXPECT_ERROR(Error::Ok, make_even_money_bet(BetKind::Black, pattern.bets[1].selection));
+    pattern.bets[1].stake = 35;
+    storage.restore_for_test(saved);
+    Engine engine(wheel, storage);
+    RecoveryReport recovery{};
+    EXPECT_ERROR(Error::Ok, engine.recover(recovery));
+    EXPECT_ERROR(Error::Ok, engine.open_bets());
+    BetId id = 0;
+    // The first straight alone is unsafe. Including the black stake makes it safe.
+    EXPECT_ERROR(Error::ArithmeticOverflow, engine.place_bet(straight(0, 1, 2), id));
+    EXPECT_ERROR(Error::Ok, engine.repeat_last_bets(0));
+    TEST_ASSERT_EQUAL_INT64(37, engine.snapshot().round.escrow);
+    EXPECT_ERROR(Error::ArithmeticOverflow, engine.undo_last_bet(0));
+}
+
+void test_interrupted_edits_are_atomic_and_refund_only_active_stakes() {
+    for (Attempt action : {Attempt::Undo, Attempt::Clear, Attempt::Repeat}) {
+        for (bool committed : {false, true}) {
+            storage.reset();
+            wheel.reset();
+            Engine engine(wheel, storage);
+            initialize(engine);
+            open_with_bet(engine, 1, 3);
+            place(engine, straight(0, 2, 7));
+            start(engine);
+            record_result(engine);
+            EXPECT_ERROR(Error::Ok, engine.settle());
+            EXPECT_ERROR(Error::Ok, engine.finish_round());
+            EXPECT_ERROR(Error::Ok, engine.open_bets());
+            place(engine, straight(0, 3, 4));
+            place(engine, straight(0, 4, 6));
+            const Snapshot before = engine.snapshot();
+            if (committed) storage.fail_next_after_commit();
+            else storage.fail_next_before_commit();
+            EXPECT_ERROR(committed ? Error::CommitOutcomeUnknown : Error::StorageIoError,
+                         attempt_command(engine, action));
+            Snapshot durable{};
+            EXPECT_ERROR(Error::Ok, storage.load_latest(durable));
+            const std::size_t event_count = action == Attempt::Undo ? 1 : 2;
+            TEST_ASSERT_EQUAL_UINT64(before.last_sequence + (committed ? event_count : 0),
+                                     durable.last_sequence);
+            const std::size_t edited_count = action == Attempt::Undo ? 1 : action == Attempt::Clear ? 0 : 4;
+            TEST_ASSERT_EQUAL_UINT64(committed ? edited_count : 2, durable.round.bet_count);
+            Engine restarted(wheel, storage);
+            RecoveryReport report{};
+            EXPECT_ERROR(Error::Ok, restarted.recover(report));
+            TEST_ASSERT_EQUAL_INT64(990, restarted.snapshot().seats[0].credits);
+            TEST_ASSERT_EQUAL_UINT8(2, restarted.snapshot().last_bets[0].count);
+            // One refund per active stake, one transition, one recovery event.
+            TEST_ASSERT_EQUAL_UINT64(durable.last_sequence + durable.round.bet_count + 2,
+                                     restarted.snapshot().last_sequence);
+            const Sequence resolved = restarted.snapshot().last_sequence;
+            EXPECT_ERROR(Error::Ok, restarted.recover(report));
+            TEST_ASSERT_EQUAL_UINT64(resolved, restarted.snapshot().last_sequence);
+        }
+    }
+}
+
+void test_new_controls_keep_terminal_reserve_at_exact_journal_capacity() {
+    // 2 initialization events, 1 open, 1 accepted, 9 reserved for resolution.
+    static MemoryStorage limited(13);
+    limited.reset();
+    FakeWheel local_wheel(&limited);
+    Engine engine(local_wheel, limited);
+    std::array<Credits, kSeatCount> credits{100};
+    EXPECT_ERROR(Error::Ok, engine.initialize({}, credits));
+    open_with_bet(engine);
+    EXPECT_ERROR(Error::Ok, engine.undo_last_bet(0)); // 1 cancellation, reserve drops by 1.
+    TEST_ASSERT_EQUAL_UINT64(5, limited.event_count());
+    BetId id = 999;
+    EXPECT_ERROR(Error::StorageFull, engine.place_bet(straight(0, 1, 1), id));
+    TEST_ASSERT_EQUAL_UINT64(999, id);
+    RecoveryReport report{};
+    EXPECT_ERROR(Error::Ok, engine.recover(report));
+    EXPECT_ERROR(Error::Ok, engine.acknowledge_fault());
+    TEST_ASSERT_EQUAL_INT64(100, engine.snapshot().seats[0].credits);
+    TEST_ASSERT_EQUAL_INT64(0, engine.snapshot().round.escrow);
+}
+
 void test_round_path_does_not_allocate_on_the_heap() {
     Engine engine(wheel, storage);
     initialize(engine);
@@ -1098,6 +1345,11 @@ void test_round_path_does_not_allocate_on_the_heap() {
     record_result(engine);
     EXPECT_ERROR(Error::Ok, engine.settle());
     EXPECT_ERROR(Error::Ok, engine.finish_round());
+    EXPECT_ERROR(Error::Ok, engine.open_bets());
+    EXPECT_ERROR(Error::Ok, engine.repeat_last_bets(0));
+    EXPECT_ERROR(Error::Ok, engine.undo_last_bet(0));
+    EXPECT_ERROR(Error::Ok, engine.repeat_last_bets(0));
+    EXPECT_ERROR(Error::Ok, engine.clear_bets(0));
     track_allocations = false;
     TEST_ASSERT_EQUAL_UINT64(0, allocation_count);
 }
@@ -1155,6 +1407,13 @@ int main() {
     RUN_TEST(test_journal_events_are_contiguous_and_record_each_payout);
     RUN_TEST(test_round_and_bet_identifiers_are_not_reused);
     RUN_TEST(test_seeded_multi_round_accounting_survives_mixed_recovery_paths);
+    RUN_TEST(test_edits_affect_only_active_bets_for_one_seat);
+    RUN_TEST(test_repeat_persists_across_recovery_empty_and_void_rounds);
+    RUN_TEST(test_repeat_late_error_rejects_whole_pattern);
+    RUN_TEST(test_removing_offsetting_stake_rechecks_all_outcomes_for_all_seats);
+    RUN_TEST(test_repeat_validates_headroom_for_complete_pattern);
+    RUN_TEST(test_interrupted_edits_are_atomic_and_refund_only_active_stakes);
+    RUN_TEST(test_new_controls_keep_terminal_reserve_at_exact_journal_capacity);
     RUN_TEST(test_round_path_does_not_allocate_on_the_heap);
     return UNITY_END();
 }

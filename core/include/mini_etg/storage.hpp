@@ -19,6 +19,8 @@ struct ResolutionReserve {
 // Idle 0/0; BetsOpen 6/(n+8); BetsClosing 5/(n+7); BetsClosed 4/(n+6);
 // Spinning 3/(n+5); Result 2/(n+3); Payout and Fault 1/1.
 // Enabled Lucky mode adds one reveal event to BetsOpen/BetsClosing reserves.
+// Cancel and repeat are optional edits. Each commit recalculates this reserve
+// from the new active count; their events never increase the terminal path.
 // Validate state/count first; leave out unchanged on error. Future event/state
 // additions must update this budget and its path-coverage tests together.
 Error required_resolution_reserve(const Snapshot& next,

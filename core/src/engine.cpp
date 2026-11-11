@@ -129,6 +129,59 @@ Error all_results_fit(const Snapshot& snapshot) noexcept {
     return Error::Ok;
 }
 
+// Stage one placement. Single bets and a repeated pattern use exactly the same
+// credit, geometry, limit and capacity checks. The caller checks all possible
+// settlements once the complete proposed edit is ready.
+Error stage_bet(JournalCommit& transaction, const BetRequest& request, Command command) noexcept {
+    Snapshot& next = transaction.next;
+    if (request.seat >= kSeatCount) return Error::InvalidSeat;
+    if (request.stake <= 0) return Error::InvalidAmount;
+    BetSelection selection{};
+    Error error = canonicalize(request.selection, selection);
+    if (error != Error::Ok) return error;
+    const TableLimits& limits = next.config.limits;
+    if (request.stake < limits.min_per_bet || request.stake > limits.max_per_bet) return Error::LimitExceeded;
+    if (request.stake > next.seats[request.seat].credits) return Error::InsufficientCredits;
+    Credits seat_stake = request.stake;
+    Credits selection_stake = request.stake;
+    std::size_t seat_bets = 0;
+    for (std::size_t i = 0; i < next.round.bet_count; ++i) {
+        const BetRequest& previous = next.round.bets[i].request;
+        if (previous.seat != request.seat) continue;
+        ++seat_bets;
+        error = checked_add(seat_stake, previous.stake, seat_stake);
+        if (error != Error::Ok) return error;
+        if (same_selection(previous.selection, selection)) {
+            error = checked_add(selection_stake, previous.stake, selection_stake);
+            if (error != Error::Ok) return error;
+        }
+    }
+    if (seat_bets >= kMaxBetsPerSeat || next.round.bet_count >= kMaxBets) return Error::BetCapacityReached;
+    if (seat_stake > limits.max_total_per_seat || selection_stake > limits.max_per_bet) return Error::LimitExceeded;
+    if (next.next_bet_id == std::numeric_limits<BetId>::max()) return Error::CounterExhausted;
+
+    AcceptedBet& bet = next.round.bets[next.round.bet_count];
+    bet.id = next.next_bet_id++;
+    bet.request = {request.seat, selection, request.stake};
+    error = base_profit_odds(selection.kind, next.config.lucky, bet.profit_odds);
+    if (error != Error::Ok) return error;
+    ++next.round.bet_count;
+    Credits& credits = next.seats[request.seat].credits;
+    error = checked_subtract(credits, request.stake, credits);
+    if (error == Error::Ok) error = checked_add(next.round.escrow, request.stake, next.round.escrow);
+    if (error != Error::Ok) return error;
+
+    Event event{};
+    event.kind = EventKind::BetAccepted;
+    event.command = command;
+    event.seat = request.seat;
+    event.bet_id = bet.id;
+    event.selection = selection;
+    event.profit_odds = bet.profit_odds;
+    event.amount = request.stake;
+    return append(transaction, event);
+}
+
 } // namespace
 
 Engine::Engine(IWheel& wheel, IStorage& storage) noexcept : wheel_(wheel), storage_(storage) {}
@@ -356,63 +409,81 @@ Error Engine::close_bets() noexcept {
     return error == Error::Ok ? publish() : error;
 }
 
+Error Engine::publish_bet_edit(Command command, Error staged) noexcept {
+    if (staged == Error::Ok) staged = all_results_fit(pending_.next);
+    return staged == Error::Ok ? publish() : reject(command, staged);
+}
+
 Error Engine::place_bet(const BetRequest& request, BetId& accepted_id) noexcept {
     if (status_ != RuntimeStatus::Ready) return Error::NotReady;
     if (current_.round.state != RoundState::BetsOpen) return reject(Command::PlaceBet, Error::IllegalTransition);
-    if (request.seat >= kSeatCount) return reject(Command::PlaceBet, Error::InvalidSeat);
-    if (request.stake <= 0) return reject(Command::PlaceBet, Error::InvalidAmount);
-    BetSelection selection{};
-    Error error = canonicalize(request.selection, selection);
-    if (error != Error::Ok) return reject(Command::PlaceBet, error);
-    const TableLimits& limits = current_.config.limits;
-    if (request.stake < limits.min_per_bet || request.stake > limits.max_per_bet) return reject(Command::PlaceBet, Error::LimitExceeded);
-    if (request.stake > current_.seats[request.seat].credits) return reject(Command::PlaceBet, Error::InsufficientCredits);
-    Credits seat_stake = 0;
-    Credits selection_stake = 0;
-    std::size_t seat_bets = 0;
-    for (std::size_t i = 0; i < current_.round.bet_count; ++i) {
-        const BetRequest& previous = current_.round.bets[i].request;
-        if (previous.seat != request.seat) continue;
-        ++seat_bets;
-        error = checked_add(seat_stake, previous.stake, seat_stake);
-        if (error != Error::Ok) return reject(Command::PlaceBet, error);
-        if (same_selection(previous.selection, selection)) {
-            error = checked_add(selection_stake, previous.stake, selection_stake);
-            if (error != Error::Ok) return reject(Command::PlaceBet, error);
-        }
-    }
-    if (seat_bets >= kMaxBetsPerSeat || current_.round.bet_count >= kMaxBets) return reject(Command::PlaceBet, Error::BetCapacityReached);
-    error = checked_add(seat_stake, request.stake, seat_stake);
-    if (error == Error::Ok) error = checked_add(selection_stake, request.stake, selection_stake);
-    if (error != Error::Ok) return reject(Command::PlaceBet, error);
-    if (seat_stake > limits.max_total_per_seat || selection_stake > limits.max_per_bet) return reject(Command::PlaceBet, Error::LimitExceeded);
-    if (current_.next_bet_id == std::numeric_limits<BetId>::max()) return reject(Command::PlaceBet, Error::CounterExhausted);
     begin_commit();
-    AcceptedBet& bet = pending_.next.round.bets[pending_.next.round.bet_count];
-    bet.id = pending_.next.next_bet_id;
-    bet.request = request;
-    bet.request.selection = selection;
-    error = base_profit_odds(selection.kind, current_.config.lucky, bet.profit_odds);
-    if (error != Error::Ok) return reject(Command::PlaceBet, error);
-    ++pending_.next.round.bet_count;
-    ++pending_.next.next_bet_id;
-    error = checked_subtract(pending_.next.seats[request.seat].credits, request.stake,
-                             pending_.next.seats[request.seat].credits);
-    if (error == Error::Ok) error = checked_add(pending_.next.round.escrow, request.stake, pending_.next.round.escrow);
-    if (error == Error::Ok) error = all_results_fit(pending_.next);
-    if (error != Error::Ok) return reject(Command::PlaceBet, error);
-    Event event{};
-    event.kind = EventKind::BetAccepted;
-    event.command = Command::PlaceBet;
-    event.seat = request.seat;
-    event.bet_id = bet.id;
-    event.selection = selection;
-    event.profit_odds = bet.profit_odds;
-    event.amount = request.stake;
-    error = append(pending_, event);
-    if (error == Error::Ok) error = publish();
-    if (error == Error::Ok) accepted_id = event.bet_id;
+    const Error staged = stage_bet(pending_, request, Command::PlaceBet);
+    const Error error = publish_bet_edit(Command::PlaceBet, staged);
+    if (error == Error::Ok) accepted_id = current_.next_bet_id - 1;
     return error;
+}
+
+Error Engine::cancel_bets(SeatId seat, Command command) noexcept {
+    if (status_ != RuntimeStatus::Ready) return Error::NotReady;
+    if (current_.round.state != RoundState::BetsOpen) return reject(command, Error::IllegalTransition);
+    if (seat >= kSeatCount) return reject(command, Error::InvalidSeat);
+
+    begin_commit();
+    Round& round = pending_.next.round;
+    std::size_t last = round.bet_count;
+    while (last > 0 && round.bets[last - 1].request.seat != seat) --last;
+    if (last == 0) return reject(command, Error::NoBets);
+
+    std::size_t retained = 0;
+    for (std::size_t i = 0; i < round.bet_count; ++i) {
+        const AcceptedBet& bet = round.bets[i];
+        if (bet.request.seat != seat || (command == Command::UndoLastBet && i != last - 1)) {
+            round.bets[retained++] = bet;
+            continue;
+        }
+        Event event{};
+        event.kind = EventKind::BetCancelled;
+        event.command = command;
+        event.seat = seat;
+        event.bet_id = bet.id;
+        event.amount = bet.request.stake;
+        Credits& credits = pending_.next.seats[seat].credits;
+        Error error = checked_add(credits, event.amount, credits);
+        if (error == Error::Ok) error = checked_subtract(round.escrow, event.amount, round.escrow);
+        if (error == Error::Ok) error = append(pending_, event);
+        if (error != Error::Ok) return reject(command, error);
+    }
+    for (std::size_t i = retained; i < round.bet_count; ++i) round.bets[i] = {};
+    round.bet_count = retained;
+    // A losing stake may have offset another seat's win at the arithmetic limit.
+    return publish_bet_edit(command, Error::Ok);
+}
+
+Error Engine::undo_last_bet(SeatId seat) noexcept {
+    return cancel_bets(seat, Command::UndoLastBet);
+}
+
+Error Engine::clear_bets(SeatId seat) noexcept {
+    return cancel_bets(seat, Command::ClearBets);
+}
+
+Error Engine::repeat_last_bets(SeatId seat) noexcept {
+    constexpr auto command = Command::RepeatLastBets;
+    if (status_ != RuntimeStatus::Ready) return Error::NotReady;
+    if (current_.round.state != RoundState::BetsOpen) return reject(command, Error::IllegalTransition);
+    if (seat >= kSeatCount) return reject(command, Error::InvalidSeat);
+    const BetPattern& pattern = current_.last_bets[seat];
+    if (pattern.count == 0) return reject(command, Error::NoBets);
+
+    begin_commit();
+    for (std::size_t i = 0; i < pattern.count; ++i) {
+        const PatternBet& bet = pattern.bets[i];
+        const Error error = stage_bet(pending_, {seat, bet.selection, bet.stake}, command);
+        if (error != Error::Ok) return reject(command, error);
+    }
+    // Only the complete pattern can be committed, so test the final portfolio.
+    return publish_bet_edit(command, Error::Ok);
 }
 
 Error Engine::start_spin(TickMs now_ms) noexcept {
@@ -504,8 +575,14 @@ Error Engine::settle_recorded_result(Command command) noexcept {
         return error;
     }
     begin_commit();
+    // A void, an empty round, or another seat's bets must preserve this seat's pattern.
+    for (std::size_t i = 0; i < kSeatCount; ++i) {
+        if (settlement.stakes[i] > 0) pending_.next.last_bets[i] = {};
+    }
     for (std::size_t i = 0; i < current_.round.bet_count; ++i) {
         const AcceptedBet& bet = current_.round.bets[i];
+        BetPattern& pattern = pending_.next.last_bets[bet.request.seat];
+        pattern.bets[pattern.count++] = {bet.request.selection, bet.request.stake};
         Event event{};
         event.kind = EventKind::BetSettled;
         event.command = command;

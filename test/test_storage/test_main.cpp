@@ -241,6 +241,30 @@ void test_snapshot_rechecks_canonical_exposure_and_unique_ids() {
     expect(Error::StorageCorrupt, validate_snapshot(snapshot));
 }
 
+void test_snapshot_rejects_invalid_persisted_patterns_and_prior_schema() {
+    Snapshot original = funded();
+    auto& pattern = original.last_bets[0];
+    pattern.count = 2;
+    const BetSelection straight = single_bet().round.bets[0].request.selection;
+    pattern.bets[0] = {straight, 30};
+    pattern.bets[1] = {straight, 50};
+    expect(Error::Ok, validate_snapshot(original));
+    for (int change = 0; change < 7; ++change) {
+        Snapshot bad = original;
+        auto& changed = bad.last_bets[0];
+        switch (change) {
+        case 0: bad.format_version = 2; break;
+        case 1: changed.count = kMaxBetsPerSeat + 1; break;
+        case 2: changed.bets[1].stake = 0; break;
+        case 3: changed.bets[1].selection.numbers[0].value = 37; break;
+        case 4: changed.bets[1].selection.numbers[1].value = 3; break;
+        case 5: bad.config.limits.max_total_per_seat = 75; break;
+        case 6: bad.config.limits.max_per_bet = 75; break;
+        }
+        expect(Error::StorageCorrupt, validate_snapshot(bad));
+    }
+}
+
 void test_reserve_table_and_invalid_output_unchanged() {
     const RoundState states[] = {
         RoundState::Idle, RoundState::BetsOpen, RoundState::BetsClosing,
@@ -456,6 +480,7 @@ int main() {
     RUN_TEST(test_snapshot_rejects_schema_metadata_and_state_corruption);
     RUN_TEST(test_snapshot_rejects_bet_and_result_corruption);
     RUN_TEST(test_snapshot_rechecks_canonical_exposure_and_unique_ids);
+    RUN_TEST(test_snapshot_rejects_invalid_persisted_patterns_and_prior_schema);
     RUN_TEST(test_reserve_table_and_invalid_output_unchanged);
     RUN_TEST(test_empty_storage_and_missing_events_leave_outputs_unchanged);
     RUN_TEST(test_commits_append_events_without_changing_prior_records);

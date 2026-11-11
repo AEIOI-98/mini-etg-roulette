@@ -49,9 +49,19 @@ struct Round {
     LuckyDraw lucky{}; // Drawn and journalled atomically with BetsClosed.
 };
 
+struct PatternBet {
+    BetSelection selection{};
+    Credits stake{0};
+};
+
+struct BetPattern {
+    std::array<PatternBet, kMaxBetsPerSeat> bets{};
+    std::uint8_t count{0};
+};
+
 // This is the complete durable ledger, not a raw binary storage format.
 struct Snapshot {
-    std::uint32_t format_version{2}; // Version 1 had no multiplier config/draw.
+    std::uint32_t format_version{3}; // Version 3 persists the last paid pattern per seat.
     Revision revision{0};
     Sequence last_sequence{0};
     BetId next_bet_id{1};
@@ -59,6 +69,7 @@ struct Snapshot {
     std::array<Seat, kSeatCount> seats{};
     Credits house_result{0}; // Cumulative signed net house profit.
     Round round{};
+    std::array<BetPattern, kSeatCount> last_bets{};
 };
 
 Error validate_config(const EngineConfig& config) noexcept;
