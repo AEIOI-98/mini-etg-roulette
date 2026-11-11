@@ -140,9 +140,9 @@ from integer overflow. The journal also reserves space for the reveal event.
 
 Recovery before Result refunds the stakes. Recovery after Result pays the saved
 number using the saved multipliers; it does not draw again and needs no RNG to
-complete that payout. The snapshot schema is now version 2. Old or unsupported
-schemas return an error instead of resetting balances; there is no persisted
-Phase 1 file-format migration because file/NVS/browser adapters do not yet exist.
+complete that payout. Phase 2 introduced snapshot version 2 for Lucky Numbers. Version 3
+also records each seat’s repeat pattern. The browser adapter first shipped with
+version 3 and reports unsupported formats as an error.
 
 ## Why ten million spins still have sampling noise
 

@@ -1,8 +1,8 @@
 # Phase 3B — browser terminal and operator dashboard
 
-Status: **scope added by the user; implementation pending**. This phase follows
-the desktop simulator. Phases 1–3 are implemented; user review is still required
-after each phase. No web application, WASM binary or deployment exists yet.
+This document preserves the design proposed before implementation. The
+[browser guide](PHASE_3B_GUIDE.md) describes the implemented interfaces, binary
+storage format, build commands and operating limits.
 
 ## Shared engine and the WASM bridge
 

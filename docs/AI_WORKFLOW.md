@@ -515,3 +515,56 @@ whitespace checks passed across the complete Phase 3 diff. Work was saved as
 separate commits for shared simulation components, the session journal, the CLI
 and its executable tests, and documentation. The assistant stopped at Phase 3
 for review. Browser UI/WASM, deployment, firmware and PNG plotting were not built.
+
+## 2026-11-11 — Phase 3B browser terminal and operator dashboard
+
+After Phase 3 review, the user asked to continue. The browser build uses the
+existing C++17 core, wheel, RNG and seven simulator bots through Emscripten and
+embind. The player submits catalog selections and animates recorded pockets.
+The operator view displays the actual engine state, ledger entries and
+settled-stake charts. We used hash routes so both screens work under a static
+GitHub Pages repository path.
+
+Added atomic undo, clear and repeat and saved the last participating paid pattern
+per seat in schema version 3. Native regressions exercised removing a loss that
+would otherwise offset another seat's winning return near the int64 boundary,
+as well as all-or-none repeat, recovery, capacity and cancellation. All 131
+PlatformIO cases passed across seven suites. The nine simulator integrations
+and four math-tool checks also passed.
+
+Added a bounded, versioned browser journal. An early compiler run rejected an
+empty single-quoted JavaScript string inside a C++ EM_JS macro. Changing the
+literal to double quotes preserved the JavaScript behavior and fixed the build
+with warnings treated as errors. During review we found that a damaged but
+checksummed event could supply an out-of-range bet kind to the log formatter.
+The reader now checks the payload before the engine recovers it.
+
+Compared 41 native and WASM command steps, tested recovery at all eight round
+states, a delayed sensor poll and stake-weighted theoretical RTP under an
+alternate Lucky configuration. The storage tests sent 9,007,199,254,740,993
+credits through embind, recovered the exact winning payout and negative house
+result, and verified that a second reload left the paid ledger intact. Tests
+also exercised quota at the saved envelope size, invalid checksums, malformed
+event payloads and unavailable storage.
+
+Headless Chrome exercised the production build under a repository subpath. Its
+first run reached the list input but could not locate “Bet type” by its accessible
+name. Explicit names for both selects fixed that check. The rerun exercised all
+157 hit targets at 1920×1080, 1366×768 and 1280×720, chip selection, undo,
+clear, limit feedback, the full round, repeat, both sensor faults and a read-only
+operator tab taking over and refunding on writer exit. All 37 wheel endpoints
+were checked separately. We inspected the live player and operator renderings.
+
+A direct call to the release WASM binding exposed a numeric conversion bug:
+a BigInt of 2^64 + 1 narrowed to a one-credit bet before C++ could validate the
+stake. The binding now checks the original JS types and ranges before converting
+them and sends invalid inputs through the engine's rejection path. Regression
+cases include out-of-range stakes and wrapped, fractional or mistyped catalog IDs.
+
+The final build passed seven bridge/player tests, four browser-storage tests
+and the Chrome end-to-end test. A local preview served both hash routes and
+the WASM asset with the correct MIME type. Added the GitHub Actions workflow
+and verified the bundle under a repository subpath. The local checkout had no
+remote, and the signed-in account had no repository with this project's name.
+We asked the user to select the publishing destination. Remote deployment and a
+public README link are pending that choice.

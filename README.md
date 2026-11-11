@@ -1,20 +1,39 @@
 # mini-etg-roulette
 
-**Live demo:** not deployed yet. The verified GitHub Pages link will go here after
-the Phase 3B deployment succeeds.
+**Local preview** · [Player terminal](http://127.0.0.1:4173/#/play) ·
+[Operator dashboard](http://127.0.0.1:4173/#/operator) ·
+[Run instructions](docs/PHASE_3B_GUIDE.md)
+
+GitHub Pages publication is pending a destination repository.
 
 A portable C++17 model of European roulette, built as a portfolio project. The
-same engine is intended for a desktop simulator, a browser player terminal and
-operator dashboard, and an ESP32 wheel-controller demo.
+desktop simulator and browser player terminal share one engine. An operator
+dashboard exposes the ledger, faults and recovery. An ESP32 controller is planned.
 
 **Educational demo only. No real money. Not certified gaming software.**
 No company products or proprietary features are reproduced.
 
-**Current status: Phases 1–3 implemented; Phase 3 ready for user review.** The
-desktop CLI runs eight bots through standard or Lucky rounds with fault injection.
-Native tests cover accounting and recovery; the math experiment has completed
-ten million spins. Later phases remain pending review:
-**3B (browser) → 4 (ESP32) → 5 (polish)**.
+**Phase 3B is ready for review locally.** The player terminal supports all 157
+legal selections on the table or in an accessible list. The operator dashboard
+shows eight seats, numbered events, fault injection, recovery and live RTP and
+frequency charts. The ESP32 controller and final portfolio media are scheduled
+for Phases 4 and 5.
+
+## Run the browser terminal
+
+With Node 24 and an activated Emscripten 4.0.22 SDK, run:
+
+```sh
+cd web
+npm ci
+npm run build
+npm run preview
+```
+
+Open the Local URL printed by Vite. Choose **Player terminal** to place chips or
+**Operator** to inspect the same round. For a quick recovery demo, place a chip
+and reload while bets are open. The journal records the void and returns the
+outstanding stakes. [Build instructions and walkthrough](docs/PHASE_3B_GUIDE.md)
 
 ## Run the desktop simulator
 
@@ -65,14 +84,14 @@ framework. PlatformIO and build caches stay in the ignored `.pio-core/` and
 and RTTI disabled. Windows users can activate `.venv\Scripts\activate`
 instead of the POSIX `source` command.
 
-Verified locally: **123 test cases passed** across seven suites:
+Verified locally: **131 test cases passed** across seven suites:
 
 - `test_domain`: exact wheel order and colours, every valid bet selection against
   all 37 results, invalid geometry, integer boundaries and RNG rejection draws.
 - `test_storage`: snapshot integrity, accounting, atomic old-or-new commits,
   contiguous events, corruption, storage capacity and reserved terminal counters.
 - `test_engine`: command/state guards, eight seats, limits, payouts/refunds,
-  delayed sensor reports, timer rollover, crash recovery, repeated rounds and
+  delayed sensors, timer rollover, atomic undo/clear/repeat, crash recovery and
   absence of C++ heap allocation in exercised round paths.
 - `test_lucky`: weighted selection, distinct numbers, configurable base payouts,
   full-width multipliers, unchanged other bets, analytical RTP and variance.
@@ -127,7 +146,7 @@ Four tooling checks also pass: `python3 tools/test_math_tool.py`.
 
 ```mermaid
 flowchart LR
-    Caller[CLI / native tests / future browser] --> Engine[C++17 Engine]
+    Caller[CLI / native tests / browser WASM] --> Engine[C++17 Engine]
     Bots[Shared C++ bots] --> Engine
     Engine --> Rules[Wheel model, bet geometry, integer accounting]
     Engine --> Lucky[Lucky selection and payouts]
@@ -135,6 +154,7 @@ flowchart LR
     Engine --> Storage[IStorage]
     Wheel --> Fake[Simulated wheel / test fake]
     Storage --> Memory[Session / test RAM journal]
+    Storage --> Browser[Atomic localStorage journal]
     Lucky --> RNG[IRandom + rejection sampling]
     RNG --> TestRNG[Seeded source]
 ```
@@ -155,21 +175,21 @@ recovery uses the saved values without consuming randomness.
 reusable bots, seeded RNG and wheel live in `sim/shared/`, separate from CLI
 parsing and printing. Wheel, Lucky and bot decisions use separate seeded streams.
 The memory journal survives recreation of an engine; it does **not** survive
-process exit. Browser localStorage and NVS adapters belong to later phases.
+process exit. The browser uses localStorage. The ESP32 NVS adapter is planned for Phase 4.
 
 ## Design principle: the engine decides, the presentation follows
 
-The C++ engine records the result before a presentation reveals it. The future
-browser computes wheel rotation, ball deceleration and settling to land on that
-recorded pocket. Animation timing, skipped frames, reduced-motion settings and
-page reloads never choose a result, reroll it or calculate a payout. The dashboard
-will expose the actual engine state while result animations play.
+The C++ engine records the result before the browser reveals it. The wheel
+rotation and ball deceleration are computed to land on that recorded pocket.
+The engine schedules payout independently of the animation. A skipped frame,
+a reduced-motion preference or a reload cannot pick a different number.
 
-Emscripten will compile this same C++ engine into WebAssembly, which the browser
-can run. Embind provides functions TypeScript can call. A click sends a command
-into C++; TypeScript displays the returned state. Rules, credit changes, payouts
-and simulator bots stay in C++. The [Phase 3B plan](docs/PHASE_3B_PROPOSAL.md)
-covers the bridge, operator dashboard, deployment and later media additions.
+Emscripten compiles the same C++ files used by the simulator into WebAssembly.
+Embind exposes a small C++ class that TypeScript can call like a JavaScript
+object. Clicking a chip sends a command into C++. Once the engine has validated
+and saved it, the browser draws the accepted bet and updated credit meter.
+The wheel, rules, payouts and seven bots run in C++.
+[How the bridge, journal and charts work](docs/PHASE_3B_GUIDE.md)
 
 ## Planned demo media and results
 
@@ -180,7 +200,7 @@ covers the bridge, operator dashboard, deployment and later media additions.
 
 ## Built with AI assistance
 
-AI agents proposed the interfaces, implemented Phases 1–3 after user approval, wrote
+AI agents proposed the interfaces, implemented Phases 1–3B after user approval, wrote
 tests and reviewed the code independently. The native test suite runs the actual
 C++ implementation. See [AI_WORKFLOW.md](docs/AI_WORKFLOW.md) for findings, fixes
 and validation performed in this session. Human review is still required at each
@@ -188,5 +208,5 @@ phase boundary.
 
 Projekt je učni prikaz evropske rulete s skupnim jedrom v jeziku C++17.
 Ne uporablja pravega denarja in ni certificirana programska oprema za igre na srečo.
-Prve tri faze vsebujejo jedro, teste, analizo množiteljev in namizni simulator;
-spletni vmesnik in strojna oprema sta načrtovana za poznejše faze.
+Namizni simulator in spletni terminal uporabljata isto jedro, medtem ko
+nadzorna plošča prikazuje potek igre in obnovitev po prekinitvi.
