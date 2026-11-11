@@ -370,3 +370,42 @@ Two agents independently reviewed the engine/model/storage integration and found
 no concrete reachable defect. No native test failure was observed in Phase 2;
 the review-driven changes were the explicit payout definition, uncertainty-aware
 math validation, complete draw persistence, payout headroom and reveal reserves.
+
+## 2026-11-11 — Phase 2 Monte Carlo run and reproducible results
+
+Added a C++ analysis harness using the shared Lucky selection, payout and analytical
+functions. A seeded `IWheel` supplies the result; an independent seeded `IRandom`
+stream supplies Lucky selection. It measures a fixed-number standard bet, a
+fixed-number Lucky bet and a separately labeled portfolio covering all 37
+straights. This fast probability harness does not journal full engine rounds;
+the native integration tests cover that behavior.
+
+The Python build/run wrapper uses only the standard library. Four tooling
+integration checks passed: invalid arguments, deterministic output/accounting,
+the final partial convergence interval, and an invalid output path. Review found
+and corrected a report link that assumed the default output directory; generated
+reports now refer to the repository's math document without a broken relative
+link when a custom destination is used. Build artifacts are ignored.
+
+Ran `python3 tools/run_math.py --spins 10000000 --seed 20261111` successfully,
+using Lucky seed 2667729230. The saved results are:
+
+| Experiment | Observed RTP | Approximate 95% interval |
+| --- | ---: | --- |
+| Standard fixed number | 96.909480% | 96.548349%–97.270611% |
+| Lucky fixed number | 96.848700% | 96.371746%–97.325654% |
+| Lucky all-37 portfolio | 97.270592% | 97.219625%–97.321559% |
+
+Theoretical RTP is 97.297297% for all three. The standard fixed-number interval
+misses it in this run; the result and seed were retained rather than rerun to
+force agreement. The Lucky portfolio differs by about −0.0267 percentage point
+and its interval contains theory. Wheel chi-square was 39.909041 with 36 degrees
+of freedom, below the 1% critical value 58.619, so uniformity was not rejected.
+NIST's primary references for the test, critical value and confidence intervals
+were consulted and linked in `MATH.md` and the generated report.
+
+Independent checks confirmed the histogram totals ten million, all 37 bins are
+present, the 100 convergence rows end at ten million spins, standard returns
+equal 36 times the zero count, and every final RTP matches its exact credit
+totals. An exact rational calculation independently recovered RTP 36/37 and the
+reported variance formulas. CSV outputs are saved for the later plotting phase.
