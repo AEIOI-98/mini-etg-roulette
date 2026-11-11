@@ -13,10 +13,10 @@ Error required_resolution_reserve(const Snapshot& next,
     case RoundState::Idle:
         break;
     case RoundState::BetsOpen:
-        reserve = {6, bets + 8};
+        reserve = {6, bets + 8 + (next.config.lucky.enabled ? 1 : 0)};
         break;
     case RoundState::BetsClosing:
-        reserve = {5, bets + 7};
+        reserve = {5, bets + 7 + (next.config.lucky.enabled ? 1 : 0)};
         break;
     case RoundState::BetsClosed:
         reserve = {4, bets + 6};

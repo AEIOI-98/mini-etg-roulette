@@ -327,7 +327,7 @@ helpers, and calculates analytical RTP and variance. Number selection is uniform
 without replacement; multiplier tickets are independent draws. All ledger
 amounts remain int64; floating point is confined to probability analysis.
 
-Independent calculation confirmed E[K]=3, E[M]=104, and exact default RTP36/37.
+Independent calculation confirmed E[K] = 3, E[M] = 104, and exact default RTP 36/37.
 It also identified an important verification constraint: ten million fixed-number
 unit bets have a roughly ±0.4765 percentage-point 95% interval, wider than the
 requested analytical ±0.1-point tuning target. The analysis therefore reports
@@ -335,8 +335,38 @@ that sampling uncertainty and also measures a clearly labeled 37-straight
 portfolio, treating spins rather than its correlated bets as independent samples.
 No seeds are retried to improve the reported RTP.
 
-All 15 new Lucky domain test cases passed, including every37×100 pocket/ticket
-choice, all1,332 ordered distinct pairs, all count ranges, seeded draws, every
+All 15 new Lucky domain test cases passed, including every 37×100 pocket/ticket
+choice, all 1,332 ordered distinct pairs, all count ranges, seeded draws, every
 straight outcome/multiplier combination, unchanged non-straight payouts, maximum
-uint32 weight totals, uint16 multiplier65535, checked payout overflow, and
+uint32 weight totals, uint16 multiplier 65535, checked payout overflow, and
 analytical formulas compared against independently enumerated expected values.
+
+## 2026-11-11 — Phase 2 engine integration and crash tests
+
+Added a borrowed `IRandom` constructor overload while retaining the standard-mode
+two-argument constructor. Enabled rounds need an RNG to initialize/open; recovery
+of a recorded result needs no RNG. `close_bets()` now saves the enabled draw,
+its full reveal event and the BetsClosed transition in one commit. Recovery
+refunds pre-result rounds or settles the saved result and multipliers, never
+redrawing them. The config and draw are part of snapshot schema version 2;
+unsupported version 1 is rejected rather than interpreted as an empty ledger.
+
+Before accepting a bet, the engine checks each of 37 possible results at both
+base and maximum configured gross returns. All winning straights on a result
+share the same multiplier, so these endpoints cover every possible seat, house
+and meter outcome. The reserve budget adds one reveal event while bets remain
+open/closing. Full draw validation checks the count, supported values, uniqueness,
+unused fields and whether that state can contain a draw.
+
+The full `pio test -e native` run passed **101 test cases, 0 failures**: all 70
+Phase 1 cases, 15 Lucky domain cases and 16 Lucky engine integration cases. The
+new integration tests cover close/result/payout commit failures before and after
+the write, recovery without randomness, base and boosted payouts, 65535× returns,
+corrupt recorded draws, overflow headroom, exact event capacity, near-maximum
+sequence counters and the enabled no-allocation path. The old-schema fixture was
+updated to reject version 1 after the intentional schema change.
+
+Two agents independently reviewed the engine/model/storage integration and found
+no concrete reachable defect. No native test failure was observed in Phase 2;
+the review-driven changes were the explicit payout definition, uncertainty-aware
+math validation, complete draw persistence, payout headroom and reveal reserves.

@@ -59,14 +59,25 @@ struct Settlement {
     Credits house{0};
 };
 
-Error settlement_for(const Snapshot& snapshot, Number result, Settlement& out) noexcept {
+enum class ReturnCase { Recorded, Base, Maximum };
+
+Error settlement_for(const Snapshot& snapshot, Number result, Settlement& out,
+                     ReturnCase return_case = ReturnCase::Recorded) noexcept {
     Settlement next{};
     Credits total_returns = 0;
     for (std::size_t i = 0; i < snapshot.round.bet_count; ++i) {
         const AcceptedBet& bet = snapshot.round.bets[i];
         const SeatId seat = bet.request.seat;
         Credits returned = 0;
-        Error error = gross_return(bet, result, returned);
+        Error error = Error::Ok;
+        if (return_case == ReturnCase::Base) {
+            error = base_gross_return(bet, result, snapshot.config.lucky, returned);
+        } else if (return_case == ReturnCase::Maximum) {
+            error = maximum_gross_return(bet, result, snapshot.config.lucky, returned);
+        } else {
+            error = lucky_gross_return(bet, result, snapshot.config.lucky,
+                                      snapshot.round.lucky, returned);
+        }
         if (error != Error::Ok) return error;
         error = checked_add(next.stakes[seat], bet.request.stake, next.stakes[seat]);
         if (error != Error::Ok) return error;
@@ -106,8 +117,14 @@ Error settlement_for(const Snapshot& snapshot, Number result, Settlement& out) n
 Error all_results_fit(const Snapshot& snapshot) noexcept {
     Settlement settlement{};
     for (std::uint8_t number = 0; number < kPocketCount; ++number) {
-        const Error error = settlement_for(snapshot, Number{number}, settlement);
+        Error error = settlement_for(snapshot, Number{number}, settlement, ReturnCase::Base);
         if (error != Error::Ok) return error;
+        if (snapshot.config.lucky.enabled) {
+            // A given result gives all winning straights the same multiplier.
+            // Checking both endpoints covers seat/house ranges and win meters.
+            error = settlement_for(snapshot, Number{number}, settlement, ReturnCase::Maximum);
+            if (error != Error::Ok) return error;
+        }
     }
     return Error::Ok;
 }
@@ -115,6 +132,8 @@ Error all_results_fit(const Snapshot& snapshot) noexcept {
 } // namespace
 
 Engine::Engine(IWheel& wheel, IStorage& storage) noexcept : wheel_(wheel), storage_(storage) {}
+Engine::Engine(IWheel& wheel, IStorage& storage, IRandom& random) noexcept
+    : wheel_(wheel), storage_(storage), random_(&random) {}
 
 RuntimeStatus Engine::status() const noexcept { return status_; }
 const Snapshot& Engine::snapshot() const noexcept { return current_; }
@@ -192,6 +211,7 @@ Error Engine::initialize(const EngineConfig& config,
     if (status_ == RuntimeStatus::RecoveryRequired) return Error::NotReady;
     Error error = validate_config(config);
     if (error != Error::Ok) return error;
+    if (config.lucky.enabled && random_ == nullptr) return Error::InvalidConfig;
     current_ = Snapshot{};
     begin_commit();
     pending_.next.config = config;
@@ -299,6 +319,7 @@ Error Engine::transition(RoundState next, Command command) noexcept {
 Error Engine::open_bets() noexcept {
     if (status_ != RuntimeStatus::Ready) return Error::NotReady;
     if (current_.round.state != RoundState::Idle) return reject(Command::OpenBets, Error::IllegalTransition);
+    if (current_.config.lucky.enabled && random_ == nullptr) return reject(Command::OpenBets, Error::InvalidConfig);
     if (current_.round.id == std::numeric_limits<RoundId>::max()) return reject(Command::OpenBets, Error::CounterExhausted);
     begin_commit();
     pending_.next.round = Round{};
@@ -319,7 +340,20 @@ Error Engine::begin_closing() noexcept {
 Error Engine::close_bets() noexcept {
     if (status_ != RuntimeStatus::Ready) return Error::NotReady;
     if (current_.round.state != RoundState::BetsClosing) return reject(Command::CloseBets, Error::IllegalTransition);
-    return transition(RoundState::BetsClosed, Command::CloseBets);
+    if (!current_.config.lucky.enabled) return transition(RoundState::BetsClosed, Command::CloseBets);
+    if (random_ == nullptr) return reject(Command::CloseBets, Error::InvalidConfig);
+    begin_commit();
+    Error error = change_state(pending_, RoundState::BetsClosed, Command::CloseBets);
+    if (error == Error::Ok) {
+        error = draw_lucky_numbers(*random_, current_.config.lucky, pending_.next.round.lucky);
+    }
+    if (error != Error::Ok) return reject(Command::CloseBets, error);
+    Event event{};
+    event.kind = EventKind::LuckyNumbersDrawn;
+    event.command = Command::CloseBets;
+    event.lucky = pending_.next.round.lucky;
+    error = append(pending_, event);
+    return error == Error::Ok ? publish() : error;
 }
 
 Error Engine::place_bet(const BetRequest& request, BetId& accepted_id) noexcept {
@@ -358,7 +392,7 @@ Error Engine::place_bet(const BetRequest& request, BetId& accepted_id) noexcept 
     bet.id = pending_.next.next_bet_id;
     bet.request = request;
     bet.request.selection = selection;
-    error = standard_profit_odds(selection.kind, bet.profit_odds);
+    error = base_profit_odds(selection.kind, current_.config.lucky, bet.profit_odds);
     if (error != Error::Ok) return reject(Command::PlaceBet, error);
     ++pending_.next.round.bet_count;
     ++pending_.next.next_bet_id;
@@ -479,7 +513,8 @@ Error Engine::settle_recorded_result(Command command) noexcept {
         event.bet_id = bet.id;
         event.number = current_.round.result_number;
         event.pocket = current_.round.result_index;
-        error = gross_return(bet, event.number, event.amount);
+        error = lucky_gross_return(bet, event.number, current_.config.lucky,
+                                  current_.round.lucky, event.amount);
         if (error == Error::Ok) error = append(pending_, event);
         if (error != Error::Ok) return error;
     }

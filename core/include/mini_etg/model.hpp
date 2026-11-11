@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mini_etg/bet.hpp"
+#include "mini_etg/lucky.hpp"
 
 #include <array>
 
@@ -16,6 +17,7 @@ struct EngineConfig {
     TableLimits limits{};
     TickMs no_spin_timeout_ms{2000};
     TickMs ball_timeout_ms{30000}; // 0 < no-spin < ball < 2^31; from start_spin.
+    LuckyConfig lucky{};
 };
 
 struct Meters {
@@ -44,11 +46,12 @@ struct Round {
     Number result_number{};
     Credits escrow{0};
     Credits opening_total{0}; // All seat balances + cumulative house result at open.
+    LuckyDraw lucky{}; // Drawn and journalled atomically with BetsClosed.
 };
 
 // This is the complete durable ledger, not a raw binary storage format.
 struct Snapshot {
-    std::uint32_t format_version{1};
+    std::uint32_t format_version{2}; // Version 1 had no multiplier config/draw.
     Revision revision{0};
     Sequence last_sequence{0};
     BetId next_bet_id{1};

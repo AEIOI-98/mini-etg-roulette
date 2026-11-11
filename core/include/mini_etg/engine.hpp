@@ -19,6 +19,7 @@ class Engine {
 public:
     // References are borrowed; wheel and storage must outlive this Engine.
     Engine(IWheel& wheel, IStorage& storage) noexcept;
+    Engine(IWheel& wheel, IStorage& storage, IRandom& random) noexcept;
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;
 
@@ -38,7 +39,8 @@ public:
 
     Error open_bets() noexcept;       // Idle -> BetsOpen.
     Error begin_closing() noexcept;   // BetsOpen -> BetsClosing; reject new bets.
-    Error close_bets() noexcept;      // BetsClosing -> BetsClosed.
+    // BetsClosing -> BetsClosed; enabled Lucky Numbers are drawn in this commit.
+    Error close_bets() noexcept;
     // BetsOpen only. Check canonical repeated exposure and settlement headroom.
     // accepted_id is unchanged on failure; the caller must not blindly retry an
     // uncertain commit (recover first and inspect the journal).
@@ -67,6 +69,7 @@ private:
 
     IWheel& wheel_;
     IStorage& storage_;
+    IRandom* random_{nullptr}; // Borrowed, required to open enabled Lucky rounds.
     Snapshot current_{};
     JournalCommit pending_{}; // Preallocated staging space, not a large tick() stack local.
     RuntimeStatus status_{RuntimeStatus::Uninitialized};

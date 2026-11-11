@@ -28,7 +28,7 @@ struct BetRequest {
 struct AcceptedBet {
     BetId id{0};
     BetRequest request{};
-    std::uint8_t profit_odds{0}; // Fixed when accepted: 35 means 35:1 profit.
+    std::uint8_t profit_odds{0}; // Base profit fixed at acceptance; Lucky boost is separate.
 };
 
 // Validate kind, number range, uniqueness, exact set/geometry; sort out's numbers.
@@ -46,7 +46,8 @@ Error make_even_money_bet(BetKind kind, BetSelection& out) noexcept;
 Error standard_profit_odds(BetKind kind, std::uint8_t& out) noexcept;
 Error covers(const BetSelection& selection, Number result, bool& out) noexcept;
 
-// Gross return, including the stake: stake * (profit_odds + 1), or 0 on a loss.
+// Standard-mode gross return: stake * (profit_odds + 1), or 0 on a loss.
+// Lucky mode uses lucky_gross_return() with the recorded config and draw.
 Error gross_return(const AcceptedBet& bet, Number result, Credits& out) noexcept;
 
 } // namespace mini_etg

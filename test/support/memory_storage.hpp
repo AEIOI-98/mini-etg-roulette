@@ -95,7 +95,7 @@ public:
             const Event& event = batch.entries[i];
             if (event.sequence != previous_sequence + i + 1 ||
                 event.revision != next.revision || event.round_id != next.round.id ||
-                static_cast<unsigned>(event.kind) > static_cast<unsigned>(EventKind::RecoveryApplied) ||
+                static_cast<unsigned>(event.kind) > static_cast<unsigned>(EventKind::LuckyNumbersDrawn) ||
                 static_cast<unsigned>(event.command) > static_cast<unsigned>(Command::AcknowledgeFault) ||
                 static_cast<unsigned>(event.from) > static_cast<unsigned>(RoundState::Fault) ||
                 static_cast<unsigned>(event.to) > static_cast<unsigned>(RoundState::Fault)) {

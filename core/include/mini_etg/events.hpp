@@ -14,7 +14,8 @@ enum class Command : std::uint8_t {
 
 enum class EventKind : std::uint8_t {
     Initialized, StateChanged, BetAccepted, BetSettled, BetRefunded,
-    CreditLoaded, CreditWithdrawn, CommandRejected, ResultRecorded, RecoveryApplied
+    CreditLoaded, CreditWithdrawn, CommandRejected, ResultRecorded, RecoveryApplied,
+    LuckyNumbersDrawn
 };
 
 // Flat fields keep the educational format simple; unused fields are zero/default.
@@ -36,6 +37,7 @@ struct Event {
     Credits amount{0}; // Stake, gross return, refund, or external transfer by kind.
     PocketIndex pocket{};
     Number number{};
+    LuckyDraw lucky{}; // Full reveal in LuckyNumbersDrawn; retained in history.
 };
 
 // Enough for all 128 bet settlements/refunds plus transition/recovery events.

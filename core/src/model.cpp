@@ -81,6 +81,25 @@ bool valid_round_shape(const Round& round) noexcept {
     return true;
 }
 
+bool valid_lucky_phase(const Snapshot& snapshot) noexcept {
+    const Round& round = snapshot.round;
+    const LuckyConfig& config = snapshot.config.lucky;
+    if (!config.enabled) return validate_lucky_draw(config, round.lucky) == Error::Ok;
+
+    const bool must_have_draw = round.state == RoundState::BetsClosed ||
+        round.state == RoundState::Spinning || round.state == RoundState::Result ||
+        round.resolution == Resolution::Paid;
+    const bool must_be_empty = round.state == RoundState::BetsOpen ||
+        round.state == RoundState::BetsClosing || round.resolution == Resolution::None;
+    if (round.lucky.count == 0) {
+        if (must_have_draw) return false;
+        LuckyConfig disabled = config;
+        disabled.enabled = false;
+        return validate_lucky_draw(disabled, round.lucky) == Error::Ok;
+    }
+    return !must_be_empty && validate_lucky_draw(config, round.lucky) == Error::Ok;
+}
+
 } // namespace
 
 Error validate_config(const EngineConfig& config) noexcept {
@@ -90,7 +109,8 @@ Error validate_config(const EngineConfig& config) noexcept {
         limits.max_total_per_seat < limits.min_per_bet ||
         config.no_spin_timeout_ms == 0 ||
         config.no_spin_timeout_ms >= config.ball_timeout_ms ||
-        config.ball_timeout_ms >= half_range) {
+        config.ball_timeout_ms >= half_range ||
+        validate_lucky_config(config.lucky) != Error::Ok) {
         return Error::InvalidConfig;
     }
     return Error::Ok;
@@ -150,10 +170,10 @@ Error check_accounting(const Snapshot& snapshot) noexcept {
 }
 
 Error validate_snapshot(const Snapshot& snapshot) noexcept {
-    if (snapshot.format_version != 1 || snapshot.revision == 0 ||
+    if (snapshot.format_version != 2 || snapshot.revision == 0 ||
         snapshot.last_sequence < snapshot.revision || snapshot.next_bet_id == 0 ||
         validate_config(snapshot.config) != Error::Ok ||
-        !valid_round_shape(snapshot.round)) {
+        !valid_round_shape(snapshot.round) || !valid_lucky_phase(snapshot)) {
         return Error::StorageCorrupt;
     }
 
@@ -173,7 +193,7 @@ Error validate_snapshot(const Snapshot& snapshot) noexcept {
         std::uint8_t expected_odds = 0;
         if (canonicalize(request.selection, canonical) != Error::Ok ||
             !same_selection(request.selection, canonical) ||
-            standard_profit_odds(request.selection.kind, expected_odds) != Error::Ok ||
+            base_profit_odds(request.selection.kind, snapshot.config.lucky, expected_odds) != Error::Ok ||
             bet.profit_odds != expected_odds) {
             return Error::StorageCorrupt;
         }

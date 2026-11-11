@@ -173,7 +173,7 @@ void test_accounting_detects_missing_money_bad_escrow_and_overflow() {
 
 void test_snapshot_rejects_schema_metadata_and_state_corruption() {
     Snapshot snapshot = funded();
-    snapshot.format_version = 2;
+    snapshot.format_version = 1; // Old schema must not masquerade as the new ledger.
     expect(Error::StorageCorrupt, validate_snapshot(snapshot));
     snapshot = funded();
     snapshot.revision = 0;
