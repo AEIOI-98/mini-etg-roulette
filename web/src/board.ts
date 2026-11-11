@@ -64,7 +64,7 @@ export class BettingBoard {
   private readonly colours: Map<number, string>
 
   constructor(private host: HTMLElement, private catalog: Catalog,
-    private onPlace: (id: number) => void, private onPreview: (s: Selection | null) => void) {
+    private onPlace: (id: number) => void, private onPreview: (s: Selection | null, list: boolean) => void) {
     this.colours = new Map(catalog.wheel.map(p => [p.number, p.colour]))
     this.grid.className = 'etg-felt'
     this.grid.setAttribute('role', 'group')
@@ -138,7 +138,7 @@ export class BettingBoard {
     for (const n of this.highlighted) this.numbers.get(n)?.classList.remove('covered')
     this.highlighted = s?.numbers ?? []
     for (const n of this.highlighted) this.numbers.get(n)?.classList.add('covered')
-    this.onPreview(s)
+    this.onPreview(s, !this.list.hidden)
   }
   showList(show: boolean) {
     this.list.hidden = !show
@@ -157,7 +157,11 @@ export class BettingBoard {
     const totals = new Map<number, bigint>()
     for (const b of bets) if (b.seat === 0) totals.set(b.selectionId, (totals.get(b.selectionId) ?? 0n) + b.stake)
     for (const [id, marker] of this.markers) {
-      if (!totals.has(id)) { marker.remove(); this.markers.delete(id) }
+      if (!totals.has(id)) {
+        marker.remove()
+        this.markers.delete(id)
+        this.buttons.get(id)?.removeAttribute('aria-description')
+      }
     }
     for (const [id, amount] of totals) {
       const button = this.buttons.get(id)
@@ -166,6 +170,7 @@ export class BettingBoard {
       if (!marker) {
         marker = document.createElement('span')
         marker.className = 'etg-placed'
+        marker.setAttribute('aria-hidden', 'true')
         // Render in a separate pointer-transparent layer so a chip on a number
         // remains visible beside higher-priority split/corner hit targets.
         marker.style.left = (parseFloat(button.style.left) + parseFloat(button.style.width) / 2) + '%'
@@ -174,6 +179,7 @@ export class BettingBoard {
         this.markers.set(id, marker)
       }
       marker.textContent = amount.toString()
+      button.setAttribute('aria-description', amount + ' credits placed here.')
     }
   }
 }

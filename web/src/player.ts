@@ -83,7 +83,10 @@ export class Player {
       const selection = catalog.selections.find(s => s.id === id)
       const answer = this.actions.place(id, this.chip)
       this.feedback(answer, format(this.chip) + ' on ' + (selection?.label ?? 'selection') + '.')
-    }, selection => { n.preview.textContent = selection?.label ?? 'Tap a number, line or intersection to place a chip.' })
+    }, (selection, list) => {
+      n.preview.textContent = selection ? selection.label + (list && selection.numbers.length > 6 ?
+        ' · ' + selection.numbers.join(', ') : '') : 'Tap a number, line or intersection to place a chip.'
+    })
     n.preview.textContent = 'Tap a number, line or intersection to place a chip.'
     this.wheel = new Wheel(n.wheel, catalog.wheel)
     for (const value of chips) {
