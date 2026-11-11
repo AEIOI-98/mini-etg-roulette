@@ -449,3 +449,21 @@ partial/delayed/wrapped polling, cancellation, invalid inputs, every wheel fault
 through the real engine, subsequent result alignment, all bot strategies and
 limits, 100 complete Lucky rounds, and no observed C++ allocations in the shared
 round path. Existing core game logic was reused without production changes.
+
+## 2026-11-11 — Phase 3 session journal
+
+Added a production simulator `MemoryJournal` that borrows an exclusive,
+caller-allocated event buffer. It checks snapshots, event metadata, contiguous
+sequences/revisions and terminal reserves before publishing any part of a commit.
+It allocates no memory during commits and never overwrites older events. Copying
+the adapter is disabled to avoid two journal objects writing one buffer.
+
+Eight new native journal cases passed, covering invalid buffers, unchanged read
+outputs, immutable prefixes, invalid-batch atomicity, full capacity, reserved
+refund/Idle space and recovery after engine recreation from every round state.
+This is session-local RAM storage, not persistence across process exit or physical
+power loss. The test-only journal and its failpoints remain available separately.
+
+The full `pio test -e native` run passed **123 cases, 0 failures** across seven
+suites: all 101 earlier cases plus 14 shared simulator and 8 session-journal cases.
+No native production failure was observed during this phase.
