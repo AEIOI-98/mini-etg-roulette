@@ -1,10 +1,8 @@
 # mini-etg-roulette
 
-**Local preview** · [Player terminal](http://127.0.0.1:4173/#/play) ·
-[Operator dashboard](http://127.0.0.1:4173/#/operator) ·
-[Run instructions](docs/PHASE_3B_GUIDE.md)
-
-GitHub Pages publication is pending a destination repository.
+**Live demo** · [Play roulette](https://aeioi-98.github.io/mini-etg-roulette/#/play) ·
+[Operator dashboard](https://aeioi-98.github.io/mini-etg-roulette/#/operator) ·
+[Run locally](docs/PHASE_3B_GUIDE.md)
 
 A portable C++17 model of European roulette, built as a portfolio project. The
 desktop simulator and browser player terminal share one engine. An operator
@@ -13,7 +11,7 @@ dashboard exposes the ledger, faults and recovery. An ESP32 controller is planne
 **Educational demo only. No real money. Not certified gaming software.**
 No company products or proprietary features are reproduced.
 
-**Phase 3B is ready for review locally.** The player terminal supports all 157
+**Phase 3B is live on GitHub Pages.** The player terminal supports all 157
 legal selections on the table or in an accessible list. The operator dashboard
 shows eight seats, numbered events, fault injection, recovery and live RTP and
 frequency charts. The ESP32 controller and final portfolio media are scheduled

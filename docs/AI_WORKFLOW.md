@@ -568,3 +568,19 @@ and verified the bundle under a repository subpath. The local checkout had no
 remote, and the signed-in account had no repository with this project's name.
 We asked the user to select the publishing destination. Remote deployment and a
 public README link are pending that choice.
+
+## Phase 3B publication on GitHub Pages
+
+The user chose a new public repository under AEIOI-98. We pushed the project
+to `AEIOI-98/mini-etg-roulette` and enabled GitHub Actions as its Pages source.
+The first Ubuntu build exposed a C++ compiler flag reaching Unity's C sources
+and a signedness mismatch in a Lucky Numbers test. We scoped the C++ flags to
+CXXFLAGS and gave the test an unsigned range length. All 131 native cases passed
+locally, and the replacement Linux build passed its native, WASM and Chrome
+checks. [Successful Pages deployment](https://github.com/AEIOI-98/mini-etg-roulette/actions/runs/43114557082)
+
+In a fresh Chrome session we loaded the public WASM with its correct MIME type,
+counted all 157 table selections and the eight operator seats, and placed a
+one-credit wager. Reloading before detection restored the player's 1,000 credits,
+cleared escrow and added refund events. The verified player and dashboard links
+are at the top of the README.
