@@ -78,9 +78,11 @@ export class BettingBoard {
     this.list.className = 'etg-picker'
     const category = document.createElement('label')
     category.textContent = 'Bet type'
+    this.type.setAttribute('aria-label', 'Bet type')
     category.append(this.type)
     const bet = document.createElement('label')
     bet.textContent = 'Selection'
+    this.selection.setAttribute('aria-label', 'Selection')
     bet.append(this.selection)
     for (const kind of new Set(catalog.selections.map(s => s.kind))) {
       this.type.add(new Option(kind === 'SixLine' ? 'Six line' : kind, kind))
