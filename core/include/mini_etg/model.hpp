@@ -60,6 +60,10 @@ struct Snapshot {
 
 Error validate_config(const EngineConfig& config) noexcept;
 
+// Validate a complete durable snapshot before use. Malformed schema, metadata,
+// states, bets, result or accounting returns StorageCorrupt; never repair money.
+Error validate_snapshot(const Snapshot& snapshot) noexcept;
+
 // Checks global conservation including escrow against credits_in - credits_out.
 // Also checks opening_total for the current round, including payout/refund.
 // Idle retains historical round data; its old opening_total is not compared.

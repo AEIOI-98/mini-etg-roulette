@@ -231,3 +231,25 @@ RNG rejection boundaries and arithmetic extrema. An independent scratch UBSan
 check compared one million full-range int64 input pairs against compiler overflow
 builtins for addition, subtraction and multiplication; it passed. The scratch
 check is supplemental, not a replacement for committed native tests.
+
+## 2026-11-11 — Phase 1 ledger and atomic test journal
+
+Implemented configuration and snapshot validation, accounting invariants and the
+shared terminal reservation calculation. Snapshot validation rejects unsupported
+versions, invalid round shapes, malformed bets/results, inconsistent counters and
+accounting corruption before recovery can publish the loaded state.
+
+The fixed-capacity test journal stores a complete snapshot and append-only event
+batch atomically. It can fail before writing, report an uncertain outcome after
+writing, enforce finite capacity and inject corruption. Counter and event-space
+reservations cover payout/refund, optional recovery logging and return to Idle.
+
+All 15 storage/model native test cases passed. They check validation, conservation,
+event/revision continuity, unchanged outputs on read failure, earlier event
+immutability, old-or-new crash visibility, corrupt journals and preserved terminal
+reserves. The in-memory adapter models an atomic storage contract; it does not
+claim process-exit durability or implement NVS/localStorage.
+
+The only public model addition was `validate_snapshot()`, so the engine and test
+adapter share the same structural and accounting checks. No user-requested rule
+was changed or rejected.
