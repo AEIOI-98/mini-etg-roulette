@@ -233,4 +233,5 @@ math experiment practical while keeping game rules in C++.
 
 The optional tooling checks run with `python3 tools/test_math_tool.py`. Short
 runs are labeled smoke runs and do not satisfy the ten-million-spin acceptance
-requirement. PNG plotting and the eight-bot interactive CLI remain later phases.
+requirement. The [eight-bot CLI](PHASE_3_GUIDE.md) now exercises complete engine
+rounds; PNG plotting remains a later phase.

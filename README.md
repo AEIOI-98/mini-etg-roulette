@@ -10,10 +10,36 @@ operator dashboard, and an ESP32 wheel-controller demo.
 **Educational demo only. No real money. Not certified gaming software.**
 No company products or proprietary features are reproduced.
 
-**Current status: Phases 1–2 implemented; Phase 2 ready for user review.** Native
-tests run standard and Lucky Numbers rounds, faults and simulated power losses.
-The seeded math experiment has completed ten million spins. Later phases remain
-pending review: **3 (CLI) → 3B (browser) → 4 (ESP32) → 5 (polish)**.
+**Current status: Phases 1–3 implemented; Phase 3 ready for user review.** The
+desktop CLI runs eight bots through standard or Lucky rounds with fault injection.
+Native tests cover accounting and recovery; the math experiment has completed
+ten million spins. Later phases remain pending review:
+**3B (browser) → 4 (ESP32) → 5 (polish)**.
+
+## Run the desktop simulator
+
+From this repository, with Python 3 and a C++17 compiler installed:
+
+```sh
+python3 sim/run.py --seed 42 --rounds 5 --lucky-mode
+python3 sim/run.py --seed 42 --rounds 3 --lucky-mode --inject-fault=ball-timeout
+```
+
+The wrapper builds and runs the C++ executable. It prints every round's states,
+Lucky draw, result, per-seat gross return/refund/net change and final meters.
+All game decisions stay in the shared engine. Runs use virtual time and a bounded
+RAM journal; the maximum is 10,000 rounds and there are no automatic credit top-ups.
+
+Fault options are `no-spin`, `ball-timeout`, `invalid-sensor`, `start-failure` and
+`power-loss`. They affect the first round only. The power-loss option reloads the
+surviving RAM journal; it does not test persistence across process exit.
+See the [simulator guide](docs/PHASE_3_GUIDE.md) and
+[saved fault demonstration](sim/examples/lucky-fault-demo.txt).
+All **9 CLI integration checks pass**, including a 10,000-round run:
+
+```sh
+python3 sim/test_cli.py
+```
 
 ## Run the native tests
 
@@ -39,7 +65,7 @@ framework. PlatformIO and build caches stay in the ignored `.pio-core/` and
 and RTTI disabled. Windows users can activate `.venv\Scripts\activate`
 instead of the POSIX `source` command.
 
-Verified locally: **101 test cases passed** across five suites:
+Verified locally: **123 test cases passed** across seven suites:
 
 - `test_domain`: exact wheel order and colours, every valid bet selection against
   all 37 results, invalid geometry, integer boundaries and RNG rejection draws.
@@ -52,6 +78,10 @@ Verified locally: **101 test cases passed** across five suites:
   full-width multipliers, unchanged other bets, analytical RTP and variance.
 - `test_lucky_engine`: atomic reveal, saved-multiplier recovery, corrupt draws,
   worst-case payout headroom and reserved reveal/resolution capacity.
+- `test_sim_shared`: seeded wheel observations, one-shot faults, all eight bot
+  strategies, affordability, full engine rounds and allocation checks.
+- `test_sim_journal`: the session RAM journal's atomic publication, immutable
+  event prefix, capacity reserves and recovery after recreating the engine.
 
 See the [Phase 1 walkthrough](docs/PHASE_1_GUIDE.md) for a complete round example
 and explanations aimed at a JavaScript developer. The
@@ -97,13 +127,14 @@ Four tooling checks also pass: `python3 tools/test_math_tool.py`.
 
 ```mermaid
 flowchart LR
-    Caller[Native tests / future applications] --> Engine[C++17 Engine]
+    Caller[CLI / native tests / future browser] --> Engine[C++17 Engine]
+    Bots[Shared C++ bots] --> Engine
     Engine --> Rules[Wheel model, bet geometry, integer accounting]
     Engine --> Lucky[Lucky selection and payouts]
     Engine --> Wheel[IWheel]
     Engine --> Storage[IStorage]
-    Wheel --> Fake[Test fake wheel]
-    Storage --> Memory[Test in-memory journal]
+    Wheel --> Fake[Simulated wheel / test fake]
+    Storage --> Memory[Session / test RAM journal]
     Lucky --> RNG[IRandom + rejection sampling]
     RNG --> TestRNG[Seeded source]
 ```
@@ -120,10 +151,11 @@ and sequence/revision values are reserved for finishing outstanding rounds.
 Lucky draws and their reveal event are saved with the closing transition;
 recovery uses the saved values without consuming randomness.
 
-`IWheel`, `IStorage` and `IRandom` separate rules from devices. Tests use a seeded
-random source, scripted wheel and fixed-capacity memory journal. The memory
-journal survives recreation of an engine in a test; it does **not** survive process
-exit. File, browser localStorage and NVS adapters belong to later phases.
+`IWheel`, `IStorage` and `IRandom` separate rules from devices. The simulator's
+reusable bots, seeded RNG and wheel live in `sim/shared/`, separate from CLI
+parsing and printing. Wheel, Lucky and bot decisions use separate seeded streams.
+The memory journal survives recreation of an engine; it does **not** survive
+process exit. Browser localStorage and NVS adapters belong to later phases.
 
 ## Design principle: the engine decides, the presentation follows
 
@@ -148,7 +180,7 @@ covers the bridge, operator dashboard, deployment and later media additions.
 
 ## Built with AI assistance
 
-AI agents proposed the interfaces, implemented Phases 1–2 after user approval, wrote
+AI agents proposed the interfaces, implemented Phases 1–3 after user approval, wrote
 tests and reviewed the code independently. The native test suite runs the actual
 C++ implementation. See [AI_WORKFLOW.md](docs/AI_WORKFLOW.md) for findings, fixes
 and validation performed in this session. Human review is still required at each
@@ -156,5 +188,5 @@ phase boundary.
 
 Projekt je učni prikaz evropske rulete s skupnim jedrom v jeziku C++17.
 Ne uporablja pravega denarja in ni certificirana programska oprema za igre na srečo.
-Prvi dve fazi vsebujeta delujoče jedro, teste in matematično analizo množiteljev;
+Prve tri faze vsebujejo jedro, teste, analizo množiteljev in namizni simulator;
 spletni vmesnik in strojna oprema sta načrtovana za poznejše faze.

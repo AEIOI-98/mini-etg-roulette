@@ -3,8 +3,8 @@
 Phase 1 is a portable C++17 engine with native tests. The tests drive complete
 rounds, supply wheel observations, inject storage failures and recreate the
 engine to exercise recovery. [Phase 2](MATH.md) now adds optional multipliers;
-the example here keeps standard mode. The browser, animated wheel, eight-bot CLI
-and ESP32 firmware belong to later phases.
+the example here keeps standard mode. The [eight-bot CLI](PHASE_3_GUIDE.md) is now
+implemented. The browser, animated wheel and ESP32 firmware belong to later phases.
 
 From the repository directory, after the README setup:
 
@@ -154,4 +154,4 @@ an append-only event log and the native recovery model. Phase 2 now adds multipl
 math; Phase 3 adds the simulator; Phase 3B adds the browser; Phase 4 adds hardware
 adapters; Phase 5 adds the remaining presentation/CI polish. Undo/clear/repeat are
 planned browser-phase extensions, not current engine commands. The original
-Phase 1 review gate was followed; current work stops at the Phase 2 review boundary.
+Phase 1 review gate was followed; current work stops at the Phase 3 review boundary.

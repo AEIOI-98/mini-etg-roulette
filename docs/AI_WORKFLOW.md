@@ -500,3 +500,18 @@ wheel alignment across modes/faults, and every injection in both modes.
 Independent read-only reviews of the shared components, CLI, journal capacity and
 fault handling found no additional concrete defect. No core game rule or payout
 implementation was duplicated into the CLI or Python launcher.
+
+## 2026-11-11 — Phase 3 documentation and review handoff
+
+Added `PHASE_3_GUIDE.md` with runnable commands, all flag bounds and bot strategies,
+fault behavior, event-based reporting, RNG stream separation, and plain-language
+C++ explanations of the borrowed interfaces and owned startup buffer. README now
+leads with the simulator commands and links the actual saved fault demonstration.
+Earlier phase documents point to the completed CLI while keeping browser work
+explicitly pending.
+
+Local links and paired code fences passed in all eight Markdown documents;
+whitespace checks passed across the complete Phase 3 diff. Work was saved as
+separate commits for shared simulation components, the session journal, the CLI
+and its executable tests, and documentation. The assistant stopped at Phase 3
+for review. Browser UI/WASM, deployment, firmware and PNG plotting were not built.

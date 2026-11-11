@@ -1,7 +1,7 @@
 # Phase 3B — browser terminal and operator dashboard
 
 Status: **scope added by the user; implementation pending**. This phase follows
-the desktop simulator. Phases 1–2 are implemented; user review is still required
+the desktop simulator. Phases 1–3 are implemented; user review is still required
 after each phase. No web application, WASM binary or deployment exists yet.
 
 ## Shared engine and the WASM bridge
@@ -13,8 +13,8 @@ and journals it, and the browser receives state to display. There is one set of
 game rules. [Official embind documentation](https://emscripten.org/docs/porting/connecting_cpp_and_javascript/embind.html)
 
 The browser build includes the same `core/` sources and the same C++ bot strategies,
-seeded RNG adapter and simulated `IWheel` used by the CLI. Extract these reusable
-simulation components into `sim/shared/` during Phase 3. Keep CLI parsing separate.
+seeded RNG adapter and simulated `IWheel` used by the CLI. These reusable
+simulation components are now in `sim/shared/` from Phase 3; CLI parsing is separate.
 Emscripten/embind dependencies belong in `web/wasm/`, never in `core/`.
 
 ```mermaid
@@ -76,7 +76,7 @@ the root README.
 - Canvas or SVG wheel with the correct European pocket order, ball deceleration
   and a clear settle on the committed result. Test all 37 final positions.
 - Betting layout for straight, split, street, corner, six line, dozen, column,
-  red/black, odd/even and low/high, including Phase 1's proposed zero combinations.
+  red/black, odd/even and low/high, including Phase 1's zero combinations.
   Enlarged hit regions on edges/intersections select the inside bets. Highlight
   exactly what will be submitted; define deterministic precedence where hit areas
   overlap. Use engine-provided selections/labels rather than duplicate rules.
@@ -133,8 +133,8 @@ to the same cumulative limits. Undo after repeat removes its most recent placeme
 The Phase 1 contracts now use timestamped wheel batches and preserve terminal
 event/revision headroom after every commit, including rejected commands. Their
 runtime boundary tests remain prerequisites. Extend event types, snapshots, the
-shared reserve calculation and its path-coverage tests for cancellation, repeat
-and multiplier events when those features are introduced.
+shared reserve calculation and its path-coverage tests for cancellation and repeat.
+Phase 2 already journals multiplier draws and reserves their reveal event.
 
 ## Operator dashboard and reload recovery
 
@@ -205,10 +205,10 @@ Keep browser simulation and hardware monitoring clearly identified modes.
 
 ## Build, deployment and checks
 
-Planned additions (none exist yet):
+Shared simulation components now exist; web and deployment additions remain planned:
 
 ```text
-sim/shared/                   C++ bots, seeded RNG and simulated wheel
+sim/shared/                   implemented C++ bots, seeded RNG and simulated wheel
 web/wasm/                     bindings, browser session and IStorage adapter
 web/src/                      player/operator views, layout, animation and charts
 web/test/                     bridge parity, UI, recovery and deployment checks

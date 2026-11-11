@@ -1,13 +1,14 @@
 # Phase 1: design and public interfaces
 
-Status: **implemented; user authorized continuation to Phase 2**. This document
+Status: **implemented; the original Phase 1 review gate has passed**. This document
 began as the header-only proposal and now records the implemented contracts.
 See [README](../README.md) for setup and [the walkthrough](PHASE_1_GUIDE.md) for
 a runnable example and plain-language C++ explanations.
 
-Phase 1 has since been accepted for continuation. This document describes the
-standard-mode foundation; [Phase 2 math and behavior](MATH.md) explains the
-implemented Lucky extension. Enabled Lucky mode adds one reveal event to the
+This document describes the standard-mode foundation. [Phase 2 math](MATH.md)
+explains the implemented Lucky extension; the [Phase 3 guide](PHASE_3_GUIDE.md)
+covers the runnable CLI and shared simulation components. Enabled Lucky mode adds
+one reveal event to the
 BetsOpen/BetsClosing reserve values below and uses snapshot format version 2.
 
 The user has since added [Phase 3B and Phase 4–5 extensions](PHASE_3B_PROPOSAL.md).
@@ -44,13 +45,17 @@ mini-etg-roulette/
 │   ├── test_engine/test_main.cpp
 │   ├── test_lucky/test_main.cpp            [Phase 2]
 │   ├── test_lucky_engine/test_main.cpp     [Phase 2]
+│   ├── test_sim_shared/test_main.cpp       [Phase 3]
+│   ├── test_sim_journal/test_main.cpp      [Phase 3]
 │   └── support/
 │       ├── seeded_random.hpp
 │       ├── fake_wheel.hpp
 │       └── memory_storage.hpp
 ├── sim/
-│   ├── src/                               [Phase 3: CLI]
-│   └── shared/                            [Phase 3: C++ bots, RNG, simulated wheel]
+│   ├── run.py                             [Phase 3: build/run wrapper]
+│   ├── test_cli.py                        [Phase 3: executable checks]
+│   ├── src/                              [Phase 3: implemented CLI]
+│   └── shared/                           [C++ bots, RNG, wheel and session journal]
 ├── web/                                   [Phase 3B: Vite + TypeScript]
 │   ├── wasm/                              [embind + browser adapters]
 │   ├── src/                               [player/operator views + rendering]
@@ -63,6 +68,7 @@ mini-etg-roulette/
 ├── docs/
 │   ├── PHASE_1_PROPOSAL.md
 │   ├── PHASE_1_GUIDE.md
+│   ├── PHASE_3_GUIDE.md
 │   ├── PHASE_3B_PROPOSAL.md
 │   ├── AI_WORKFLOW.md
 │   └── MATH.md                            [Phase 2, implemented]
