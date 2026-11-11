@@ -8,7 +8,7 @@ namespace mini_etg {
 
 enum class Colour : std::uint8_t { Green, Red, Black };
 
-// Clockwise from zero. Definition and reference tests follow after approval.
+// Clockwise from zero. Physical pocket indices address this array.
 extern const std::array<Number, kPocketCount> kEuropeanWheelOrder;
 
 Error number_at(PocketIndex index, Number& out) noexcept;

@@ -1,7 +1,8 @@
 # AI-assisted development record
 
-Only actions that actually occurred in this session belong here. Planned tests
-are documented separately in `PHASE_1_PROPOSAL.md`.
+Only actions that actually occurred in this session belong here. Entries are
+chronological: earlier proposal-only status statements describe that point in
+the session, not the current implementation. See README for current status.
 
 ## 2026-11-11 — Phase 1 proposal
 
@@ -201,3 +202,32 @@ This was a contract/code-inspection review. There are still no runtime function
 bodies or native game tests. The unchanged header declarations were not compiled
 again; their earlier independent C++17 syntax checks remain the latest compiler
 validation. No game behavior was exercised. Only this workflow log was changed.
+
+## 2026-11-11 — Approved Phase 1 implementation: build and domain
+
+The user asked whether the project could run. After the assistant explained that
+only headers existed and proposed implementing Phase 1 with native test setup,
+the user replied "yes". This authorized Phase 1 implementation; the requirement
+to stop for review before later phases remains in place.
+
+The assistant set up a repository-local Python virtual environment and pinned
+PlatformIO 6.2.0, the native platform 1.2.1, and C++17 compilation with warnings as
+errors, exceptions disabled and RTTI disabled. The initial restricted-network pip
+attempt failed DNS resolution; the authorized network-enabled retry installed
+the tools successfully. Build/cache directories are local and ignored by Git.
+
+Implementation was split among the assistant (engine), a domain agent, a
+model/storage agent, and an engine-test agent. No runtime code existed before
+this step. The domain implementation adds checked int64 arithmetic, unbiased
+bounded random draws, the European wheel mapping/colours, canonical bet geometry,
+standard profit odds and checked gross returns. A seeded MT19937 test adapter
+keeps random sequences reproducible.
+
+The 13 domain test cases pass in the native PlatformIO suite. They enumerate all
+37 straights, all 1,369 ordered split pairs, all 7,770 three-number combinations,
+all 66,045 four-number combinations, and all 157 valid selections against every
+result. They also exercise invalid selections, unchanged outputs on failure,
+RNG rejection boundaries and arithmetic extrema. An independent scratch UBSan
+check compared one million full-range int64 input pairs against compiler overflow
+builtins for addition, subtraction and multiplication; it passed. The scratch
+check is supplemental, not a replacement for committed native tests.

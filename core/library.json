@@ -1,0 +1,9 @@
+{
+  "name": "mini-etg-core",
+  "version": "0.1.0",
+  "description": "Portable C++17 educational European roulette engine",
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}

@@ -1,0 +1,6 @@
+.venv/
+.pio/
+.pio-core/
+__pycache__/
+.DS_Store
+
