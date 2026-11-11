@@ -95,8 +95,9 @@ export class Operator {
     const log = this.find<HTMLElement>('log')
     log.replaceChildren()
     for (const e of [...v.events].reverse()) row(log,['#'+e.sequence,String(e.roundId),e.kind,e.detail])
-    this.find('count').textContent = v.charts.rounds+' settled rounds'
-    this.find('mode').textContent = (v.luckyEnabled ? 'Lucky Numbers' : 'Standard roulette')+' · '+v.charts.rounds+' settled rounds'
+    const settled = v.charts.rounds + (v.charts.rounds === 1 ? ' settled round' : ' settled rounds')
+    this.find('count').textContent = settled
+    this.find('mode').textContent = (v.luckyEnabled ? 'Lucky Numbers' : 'Standard roulette')+' · '+settled
     const last = v.charts.series.at(-1)
     this.find('rtp').textContent = last ? pct(last.observed)+' / '+pct(last.theoretical) : '—'
     plotRtp(this.find('rtp-chart'),v.charts.series)

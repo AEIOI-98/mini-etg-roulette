@@ -1,0 +1,60 @@
+name: Test and deploy browser terminal
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-dev.txt
+      - run: pio test -e native
+      - run: python3 sim/test_cli.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/checkout@v4
+        with:
+          repository: emscripten-core/emsdk
+          ref: 15915cad554b707837024dc2758b6a1c5b94b036 # 4.0.22
+          path: .emsdk-build
+          persist-credentials: false
+      - run: ./.emsdk-build/emsdk install 4.0.22 && ./.emsdk-build/emsdk activate 4.0.22
+      - run: npm ci && npm run build
+        env:
+          EMXX: ${{ github.workspace }}/.emsdk-build/upstream/emscripten/em++
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npx --no-install playwright-core install --with-deps chromium
+        working-directory: web
+      - run: npm run test:browser
+        working-directory: web
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
