@@ -1,0 +1,154 @@
+.etg-player {
+  --felt: #18483e;
+  --felt-line: #9daea088;
+  --cream: #f5eddb;
+  color: var(--ink, #f3f1e7);
+  max-width: 1820px;
+  margin: auto;
+  padding: clamp(16px, 2.1vw, 39px) clamp(16px, 3.25vw, 64px) 32px;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.etg-player * { box-sizing: border-box }
+.etg-player [hidden] { display: none }
+.etg-player button, .etg-player select { font: inherit; touch-action: manipulation }
+.etg-player button { cursor: pointer; color: inherit }
+.etg-player button:disabled { cursor: default }
+.etg-player button:focus-visible, .etg-player select:focus-visible {
+  outline: 3px solid #ffe1a5; outline-offset: 2px;
+}
+.etg-player h1, .etg-player h2, .etg-player h3 { color: inherit; margin: 0; font-weight: 590; line-height: 1.16 }
+.etg-player-head, .etg-card-head, .etg-wheel-state, .etg-chip-row, .etg-lucky {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.etg-player-head { margin-bottom: clamp(18px, 2vw, 32px) }
+.etg-player h1 { margin-top: .16em; font-size: clamp(34px, 3.4vw, 62px); letter-spacing: -.063em }
+.etg-meta, .etg-round, .etg-clock, .etg-meters b, .etg-lucky-pick b, .etg-placed, .etg-result {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.etg-meta { font-size: clamp(10px, .75vw, 13px); font-weight: 600; line-height: 1.3; text-transform: uppercase; letter-spacing: .095em; color: #acc0bd }
+.etg-seat { display: flex; align-items: center; gap: 9px }
+.etg-seat i { height: 3px; width: 3px; background: #79958c; border-radius: 50% }
+.etg-seat-mark { display: inline-block; width: 11px; height: 9px; border: 1.5px solid #8bcab5; border-radius: 2px; position: relative }
+.etg-seat-mark::after { content: ''; position: absolute; left: 1px; right: 1px; top: 3px; height: 1px; background: #8bcab5 }
+.etg-meters { display: flex; align-items: center; gap: clamp(20px, 2.7vw, 48px) }
+.etg-meters > div { display: grid; gap: 3px }
+.etg-meters > div + div { border-left: 1px solid var(--line, #36505a); padding-left: clamp(20px, 2.7vw, 48px) }
+.etg-meters span { color: var(--muted, #aec1bf); font-size: clamp(12px, .91vw, 15px) }
+.etg-meters b { font-size: clamp(23px, 2.05vw, 38px); font-weight: 500; letter-spacing: -.055em; line-height: 1.16 }
+.etg-meters b::after { content: ' cr'; color: #a8bab5; font-size: .46em; letter-spacing: 0 }
+.etg-player-grid { display: grid; grid-template-columns: minmax(265px, .88fr) minmax(0, 1.85fr); gap: clamp(14px, 1.3vw, 24px); align-items: stretch }
+.etg-card { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #30464b; border-radius: 18px; background: #172930 }
+.etg-card-head { padding: clamp(16px, 1.5vw, 28px) clamp(16px, 1.6vw, 30px) 0 }
+.etg-card h2 { font-size: clamp(19px, 1.55vw, 29px); letter-spacing: -.045em }
+.etg-round { white-space: nowrap; background: #223940; color: #c5d8d4; border: 1px solid #3a5054; border-radius: 20px; padding: .5em .8em; font-size: clamp(10px, .74vw, 13px) }
+.etg-wheel-card { background: radial-gradient(ellipse at 48% 43%, #214139 0%, #1a3433 32%, #172c31 69%, #16292f 100%) }
+.etg-wheel-field { display: grid; place-items: center; min-height: 0; flex: 1; padding: clamp(9px, .95vw, 18px) 0 }
+.etg-wheel-drawing { width: min(89%, 46vh); aspect-ratio: 1 }
+.etg-wheel-drawing canvas { display: block; width: 100%; height: 100%; filter: drop-shadow(0 12px 10px #080f0f77) }
+.etg-wheel-state { margin: 2px clamp(16px, 1.6vw, 30px) clamp(12px, 1.2vw, 23px) }
+.etg-wheel-state h3 { font-size: clamp(22px, 1.95vw, 35px); letter-spacing: -.046em; margin-top: 4px }
+.etg-wheel-state h3.open { color: #b4f0d6 }
+.etg-wheel-state h3.fault { color: #ffad97 }
+.etg-clock { min-width: 42px; text-align: center; color: #b1c7c1; font-size: clamp(16px, 1.7vw, 30px); letter-spacing: -.06em }
+.etg-clock.open { border-radius: 9px; padding: .32em .5em; border: 1px solid #416258; color: #b6efdb; background: #223e37 }
+.etg-clock.result { border-radius: 8px; padding: .3em .45em; color: white }
+.etg-recent { border-top: 1px solid #354b4a; padding: clamp(12px, 1.2vw, 22px) clamp(16px, 1.6vw, 30px); display: flex; flex-direction: column; gap: 9px }
+.etg-recent > div { display: flex; align-items: center; gap: 5px; min-height: 29px; flex-wrap: wrap }
+.etg-result { display: inline-grid; place-items: center; width: clamp(24px, 1.9vw, 34px); aspect-ratio: 1; border-radius: 6px; color: #f8f5ea; border: 1px solid #dae4df36; font-size: clamp(12px, .84vw, 15px) }
+.etg-result.n-red, .etg-clock.n-red { background: #9b4541 }
+.etg-result.n-black, .etg-clock.n-black { background: #263238 }
+.etg-result.n-green, .etg-clock.n-green { background: #27614e }
+.etg-empty { font-size: clamp(12px, .9vw, 16px); color: #afc0bc }
+.etg-board-card { background: #1a2d33 }
+.etg-switch { display: flex; border: 1px solid #3c5154; border-radius: 9px; padding: 3px; gap: 2px; background: #122329 }
+.etg-switch button { border: 0; border-radius: 6px; padding: 6px 13px; background: transparent; color: #acbcb8; font-size: 13px }
+.etg-switch button[aria-pressed=true] { background: #39504e; color: #f7f4e7 }
+.etg-layout { margin: clamp(14px, 1.5vw, 28px) clamp(12px, 1.4vw, 27px) 0; padding: clamp(8px, .8vw, 16px); border: 1px solid #4e7568; border-radius: 12px; background: radial-gradient(ellipse at 30% 40%, #215546, #164137 80%) }
+.etg-felt { position: relative; width: 100%; height: clamp(215px, 30vh, 365px) }
+.etg-spot { position: absolute; appearance: none; border: 0; border-radius: 0; padding: 0; color: var(--cream); background: transparent; font-variant-numeric: tabular-nums; }
+.etg-spot.number, .etg-spot.outside { border: 1px solid var(--felt-line); border-right-width: 0; font-family: Georgia, serif; font-size: clamp(14px, 1.25vw, 24px); font-weight: 650 }
+.etg-spot.number { display: grid; place-items: center; border-bottom-width: 0; isolation: isolate }
+.etg-spot.number::before { content: ''; position: absolute; z-index: -1; width: min(70%, 1.8em); height: min(83%, 1.5em); border-radius: 50%; transform: rotate(-18deg); background: #9c423c }
+.etg-spot.number.n-black::before { background: #202e30 }
+.etg-spot.number.zero { height: 100%; border-radius: 5px 0 0 5px; border-width: 1px 0 1px 1px; background: #36694d; font-size: clamp(23px, 2.2vw, 36px) }
+.etg-spot.number.zero::before { display: none }
+.etg-spot.outside { font-family: inherit; font-weight: 600; font-size: clamp(11px, .89vw, 17px); letter-spacing: .015em; border-right: 1px solid var(--felt-line) }
+.etg-spot.column { font-size: clamp(10px, .78vw, 14px) }
+.etg-spot.column:first-of-type { border-radius: 0 5px 0 0 }
+.etg-spot.outside.red::before, .etg-spot.outside.black::before { content: '◆'; color: #de8271; margin-right: .36em }
+.etg-spot.outside.black::before { color: #293035; -webkit-text-stroke: .7px #cad5c8 }
+.etg-spot.street::after { content: ''; display: block; height: 1px; position: absolute; top: 30.2%; left: 0; right: 0; background: var(--felt-line) }
+.etg-spot.baseline::after { content: ''; display: block; width: 4px; height: 4px; transform: rotate(45deg); background: #9ebdaf; position: absolute; inset: 46% auto auto 45% }
+.etg-spot.covered, .etg-spot.outside:not(:disabled):hover { background-color: #8ddab337 }
+.etg-spot.joint:not(:disabled):hover::after, .etg-spot.edge:not(:disabled):hover::after,
+.etg-spot.street:not(:disabled):hover::before { content: ''; width: 8px; height: 8px; border: 2px solid #f3efce; border-radius: 50%; background: #77a78f; position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%) }
+.etg-spot:focus-visible { outline-offset: -3px !important; z-index: 6 !important }
+.etg-spot:disabled { color: var(--cream) }
+.etg-placed { position: absolute; z-index: 7; display: grid; place-items: center; pointer-events: none; border-radius: 50%; min-width: 22px; height: 22px; padding: 0 3px; transform: translate(-50%, -50%); color: #172823; background: #e2bd7b; border: 2px dashed #634a29; box-shadow: 0 2px 4px #03130f99; font-size: 10px; font-weight: 700 }
+.etg-picker { display: grid; height: clamp(215px, 30vh, 365px); align-content: center; grid-template-columns: .8fr 1.2fr auto; gap: 12px; padding: clamp(6px, 1.8vw, 32px) }
+.etg-picker label { display: grid; gap: 8px; align-content: end; font-size: 13px; color: #e3ecdf }
+.etg-picker select, .etg-picker button { min-width: 0; min-height: 44px; border-radius: 6px; border: 1px solid #77988a; background: #1d3b34; color: #fff8e8; padding: 0 9px }
+.etg-picker button { align-self: end; background: #d2ead8; color: #173d32; font-size: 14px; font-weight: 600 }
+.etg-picker button:disabled { opacity: .55 }
+.etg-board-hint { display: flex; align-items: center; min-height: 35px; gap: 7px; margin: 0 clamp(16px, 1.6vw, 30px); color: #bdccc5; font-size: clamp(12px, .9vw, 16px) }
+.etg-cross { font: 22px Georgia, serif; color: #99cdb9 }
+.etg-chip-row { margin: auto clamp(16px, 1.6vw, 30px) 0; padding: clamp(5px, .8vw, 17px) 0 0; align-items: end; flex-wrap: wrap }
+.etg-chip-group { display: grid; gap: 8px }
+.etg-chips { display: flex; gap: clamp(7px, .86vw, 17px); align-items: center }
+.etg-chip { --chip: #ebe5d1; --stripe: #969b87; display: grid; place-items: center; position: relative; isolation: isolate; width: clamp(37px, 3.3vw, 62px); height: clamp(37px, 3.3vw, 62px); padding: 0; border-radius: 50%; border: 2px solid #e8ece51a; color: #182b2c !important; font-weight: 750 !important; font-size: clamp(13px, 1vw, 18px) !important; font-variant-numeric: tabular-nums; background: repeating-conic-gradient(var(--chip) 0deg 30deg, var(--stripe) 30deg 45deg); box-shadow: inset 0 0 0 1px #1423294d, 0 3px 0 #0a1c20 }
+.etg-chip::before { content: ''; position: absolute; z-index: -1; inset: 12%; background: var(--chip); border: 1px solid #29403966; border-radius: 50% }
+.etg-chip[aria-pressed=true]::after { content: ''; position: absolute; inset: -5px; border: 2px solid #9ee4c2; border-radius: 50% }
+.etg-chip.chip-5 { --chip: #9fcbb6; --stripe: #447a63 }
+.etg-chip.chip-10 { --chip: #d6ad84; --stripe: #8e664e }
+.etg-chip.chip-25 { --chip: #b1bdd6; --stripe: #697594 }
+.etg-chip.chip-100 { --chip: #cdb4c4; --stripe: #816177 }
+.etg-edit { display: flex; gap: 5px }
+.etg-edit button { min-height: 39px; padding: .4em clamp(8px, .8vw, 16px); border: 1px solid #526864; border-radius: 7px; background: #21383b; font-size: clamp(12px, .88vw, 16px) }
+.etg-edit button:not(:disabled):hover, .etg-picker button:not(:disabled):hover { filter: brightness(1.2) }
+.etg-edit button:disabled { color: #94a7a2; border-color: #3b5052; background: #1c3035 }
+.etg-feedback { margin: 0 clamp(16px, 1.6vw, 30px); padding: clamp(12px, 1.05vw, 20px) 0; font-size: clamp(12px, .9vw, 16px); color: #b1c2bb; min-height: 32px; overflow-wrap: anywhere }
+.etg-feedback.error { color: #ffbfa9 }
+.etg-lucky { border-top: 1px solid #354b4a; padding: clamp(12px, 1.27vw, 23px) clamp(16px, 1.6vw, 30px); flex-wrap: wrap; min-height: 59px; background: #182b30 }
+.etg-lucky-heading { display: flex; align-items: center; gap: 8px }
+.etg-lucky-heading h3 { font-size: clamp(15px, 1.12vw, 21px); font-weight: 580; letter-spacing: -.03em }
+.etg-spark { color: #d2b380; font-size: 25px; line-height: 1 }
+.etg-lucky-picks { display: flex; align-items: center; gap: 6px; flex-wrap: wrap }
+.etg-lucky-pick { display: flex; align-items: center; gap: 5px; padding: 5px 7px; font-weight: 650; font-size: clamp(12px, .9vw, 15px); background: #343a31; color: #f6e9c9; border: 1px solid #625b44; border-radius: 7px; animation: etg-reveal .4s ease-out backwards }
+.etg-lucky-pick b { color: #ecce87; font-size: .8em; animation: etg-reveal .6s ease-out backwards; animation-delay: inherit }
+@keyframes etg-reveal { from { transform: translateY(5px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .etg-lucky-pick, .etg-lucky-pick b { animation: none } }
+@media (min-width: 1150px) and (max-height: 800px) {
+  .etg-player { padding-top: 16px }
+  .etg-player-head { margin-bottom: 15px }
+  .etg-wheel-drawing { width: min(85%, 40vh) }
+  .etg-wheel-field { padding: 7px 0 }
+}
+@media (max-width: 1050px) {
+  .etg-player { padding-left: 16px; padding-right: 16px }
+  .etg-player-grid { grid-template-columns: minmax(235px, .72fr) minmax(0, 1.85fr); gap: 10px }
+  .etg-card-head { flex-wrap: wrap }
+}
+@media (max-width: 780px) {
+  .etg-player-grid { grid-template-columns: 1fr }
+  .etg-wheel-card { display: grid; grid-template-columns: minmax(165px, .68fr) 1fr; grid-template-rows: auto auto 1fr; column-gap: 14px }
+  .etg-wheel-card .etg-card-head { grid-column: 1 / -1 }
+  .etg-wheel-field { grid-column: 1; grid-row: 2 / 4 }
+  .etg-wheel-drawing { width: min(94%, 230px) }
+  .etg-wheel-state { grid-column: 2; margin: 20px 15px 12px 0 }
+  .etg-recent { grid-column: 2; padding: 12px 12px 14px 0 }
+  .etg-layout { padding: 6px; margin-left: 8px; margin-right: 8px }
+  .etg-felt { height: 225px }
+}
+@media (max-width: 520px) {
+  .etg-player { padding: 14px 8px 24px }
+  .etg-player h1 { font-size: 29px }
+  .etg-meters { gap: 10px }
+  .etg-meters > div + div { padding-left: 10px }
+  .etg-meters b { font-size: 20px }
+  .etg-felt { min-width: 545px }
+  .etg-layout { overflow-x: auto }
+  .etg-picker { grid-template-columns: 1fr; height: auto }
+  .etg-card { border-radius: 12px }
+  .etg-wheel-state { align-items: start; flex-direction: column; gap: 5px }
+}
