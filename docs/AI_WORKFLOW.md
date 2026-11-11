@@ -409,3 +409,17 @@ present, the 100 convergence rows end at ten million spins, standard returns
 equal 36 times the zero count, and every final RTP matches its exact credit
 totals. An exact rational calculation independently recovered RTP 36/37 and the
 reported variance formulas. CSV outputs are saved for the later plotting phase.
+
+## 2026-11-11 — Phase 2 review handoff
+
+Updated README with current scope, the 101 passing native tests, all three
+observed RTP rows, the wheel statistic and reproducible commands. `MATH.md`
+explains the calculation step by step, includes a C++ enabling example and
+documents persistence, overflow and statistical boundaries. Earlier phase guides
+now point to the implemented extension without implying the browser exists.
+
+Local links and fenced blocks passed in all seven Markdown documents, and
+whitespace checks passed across the complete Phase 2 diff. Changes were saved
+as logical commits for the Lucky domain/math API, engine persistence/recovery,
+Monte Carlo tooling/results and documentation. The assistant stopped for Phase 2
+review. No Phase 3 CLI, browser, firmware or PNG plotting was implemented.

@@ -1,9 +1,14 @@
 # Phase 1: design and public interfaces
 
-Status: **implemented after user approval; ready for Phase 1 review**. This document
+Status: **implemented; user authorized continuation to Phase 2**. This document
 began as the header-only proposal and now records the implemented contracts.
 See [README](../README.md) for setup and [the walkthrough](PHASE_1_GUIDE.md) for
 a runnable example and plain-language C++ explanations.
+
+Phase 1 has since been accepted for continuation. This document describes the
+standard-mode foundation; [Phase 2 math and behavior](MATH.md) explains the
+implemented Lucky extension. Enabled Lucky mode adds one reveal event to the
+BetsOpen/BetsClosing reserve values below and uses snapshot format version 2.
 
 The user has since added [Phase 3B and Phase 4–5 extensions](PHASE_3B_PROPOSAL.md).
 Its future core API implications are recorded there.
@@ -27,15 +32,18 @@ mini-etg-roulette/
 │   │   ├── random.hpp
 │   │   ├── wheel.hpp
 │   │   ├── bet.hpp
+│   │   ├── lucky.hpp                        [Phase 2]
 │   │   ├── model.hpp
 │   │   ├── events.hpp
 │   │   ├── storage.hpp
 │   │   └── engine.hpp
-│   └── src/                               [seven .cpp implementation files]
+│   └── src/                               [eight .cpp implementation files]
 ├── test/                                  [PlatformIO test discovery]
 │   ├── test_domain/test_main.cpp
 │   ├── test_storage/test_main.cpp
 │   ├── test_engine/test_main.cpp
+│   ├── test_lucky/test_main.cpp            [Phase 2]
+│   ├── test_lucky_engine/test_main.cpp     [Phase 2]
 │   └── support/
 │       ├── seeded_random.hpp
 │       ├── fake_wheel.hpp
@@ -57,7 +65,7 @@ mini-etg-roulette/
 │   ├── PHASE_1_GUIDE.md
 │   ├── PHASE_3B_PROPOSAL.md
 │   ├── AI_WORKFLOW.md
-│   └── MATH.md                            [Phase 2]
+│   └── MATH.md                            [Phase 2, implemented]
 └── .github/workflows/
     ├── deploy-web.yml                     [Phase 3B: GitHub Pages]
     └── ci.yml                             [Phase 5: full native/firmware checks]
@@ -78,15 +86,16 @@ These files contain the complete public declarations, not snippets.
 | [random.hpp](../core/include/mini_etg/random.hpp) | `IRandom` and unbiased bounded integers |
 | [wheel.hpp](../core/include/mini_etg/wheel.hpp) | European order/colours, sensor reports, `IWheel` |
 | [bet.hpp](../core/include/mini_etg/bet.hpp) | Bet requests, geometry validation, canonicalization, profit odds, gross returns |
+| [lucky.hpp](../core/include/mini_etg/lucky.hpp) | Phase 2 weighted draws, configurable payouts and analytical RTP |
 | [model.hpp](../core/include/mini_etg/model.hpp) | Limits, seats, meters, outstanding bets, complete durable snapshot |
 | [events.hpp](../core/include/mini_etg/events.hpp) | Append-only event records and a fixed event batch |
 | [storage.hpp](../core/include/mini_etg/storage.hpp) | `IStorage`: atomically save the ledger and append its events |
 | [engine.hpp](../core/include/mini_etg/engine.hpp) | Guarded commands, recovery, read-only state, borrowed dependencies |
 
-The engine takes `IWheel&` and `IStorage&`. Phase 1 has no direct random decision:
-the simulated wheel takes an `IRandom&` and reports through `IWheel`. Later,
-the multiplier feature may also use `IRandom`. No multiplier or serial-codec
-interfaces are being designed before their phases.
+The standard engine takes `IWheel&` and `IStorage&`. Phase 1 has no direct random
+decision: a simulated wheel takes an `IRandom&` and reports through `IWheel`.
+Phase 2 adds a constructor borrowing an `IRandom&` for Lucky selection. Serial-codec
+interfaces remain deferred until their phase.
 
 ## Wheel and bets
 
