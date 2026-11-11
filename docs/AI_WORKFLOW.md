@@ -138,3 +138,14 @@ timing out missing events at the poll time. It defines deadline equality, delaye
 polling, timestamp order, rollover limits and lost-input behavior. The engine
 declaration now tracks the last observed elapsed time across batches. The original
 timing finding is corrected in the proposal; runtime verification remains pending.
+
+### Journal counter correction
+
+Added `ResolutionReserve` and a declaration for the shared
+`required_resolution_reserve()` calculation. Every commit now preserves enough
+revision and event-sequence values for settlement/refund and return to Idle,
+including a possible recovery event. Rejection logging follows the same rule.
+The proposal gives exact Phase 1 budgets by state and uses subtraction-based
+overflow-safe checks. Exhaustion refuses the ordinary commit without attempting
+another rejection log, leaving the reserved resolution path available. The
+earlier counter finding is corrected in the proposal; runtime tests are pending.

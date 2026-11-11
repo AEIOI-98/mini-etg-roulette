@@ -5,9 +5,10 @@ only. Default field values and fixed capacity constants are included so the type
 are readable. No Phase 1 game behavior has been implemented.
 
 The user has since added [Phase 3B and Phase 4–5 extensions](PHASE_3B_PROPOSAL.md).
-Its core API implications are recorded there. The headers remain a proposal;
-sensor observation timing has been corrected at the contract level. The terminal
-counter reservation finding remains open until its corresponding revision.
+Its core API implications are recorded there. The headers remain a proposal.
+The two earlier review findings now have corrected contracts: timestamped wheel
+batches and terminal counter/space reservations. Their runtime regression tests
+remain pending implementation.
 
 ## Folder structure
 
@@ -286,15 +287,49 @@ Each accepted placement gets a `BetAccepted` event. Settlement logs `BetSettled`
 for each bet, including a zero return for a loss; refunds log `BetRefunded`.
 Every state change has its own event. Sequence numbers start at one, are contiguous
 within/across committed batches, and never reset at a round boundary or restart.
-Revisions identify whole commits. Counter exhaustion fails instead of wrapping.
+Revisions identify whole commits. Counter exhaustion fails instead of wrapping,
+and ordinary operations must not spend values reserved to resolve existing bets.
 
 A storage adapter must preserve committed events; a two-slot snapshot by itself
 is not an append-only log. Finite storage returns `StorageFull`, never silently
-overwrites history. Before opening/accepting, it must reserve enough snapshot and
-event capacity to settle/refund the outstanding round and reach a safe state.
-Rejection logging cannot spend that reserve. The native adapter will test this
-contract; the later NVS adapter must implement it rather than assuming separate
-key writes are one transaction.
+overwrites history. After **every** proposed commit, including a rejection event,
+reserve enough space, revision values and event-sequence values to resolve that
+snapshot's round and return to Idle. `required_resolution_reserve()` supplies the
+Phase 1 counter budget below; `n` is the current active bet count.
+
+| State after this commit | Further revisions reserved | Further event IDs reserved |
+| --- | ---: | ---: |
+| `Idle` | 0 | 0 |
+| `BetsOpen` | 6 | n + 8 |
+| `BetsClosing` | 5 | n + 7 |
+| `BetsClosed` | 4 | n + 6 |
+| `Spinning` | 3 | n + 5 |
+| `Result` | 2 | n + 3 |
+| `Payout`, `Fault` | 1 | 1 |
+
+The budget covers the remaining state-change events, `ResultRecorded`, each bet's
+settlement, one possible `RecoveryApplied`, and the final Idle transition. Refund
+paths also fit. Recovery logging shares the resolution commit, not a separate
+revision. Validate the snapshot's state/count before deriving the budget.
+
+Check `MAX - next.revision >= reserved_revisions` and
+`MAX - next.last_sequence >= reserved_events`; avoid adding a reserve to a counter
+because the check itself could overflow. A terminal progression may consume the
+protected values as its required reserve shrinks. A rejected command keeps the
+same liability and must preserve the same reserve.
+
+If a proposed commit cannot preserve this headroom, return `CounterExhausted`
+without writing it. Stop ordinary commands, mark recovery required, and allow
+the already-reserved recovery/resolution path. Do not attempt to append another
+rejection about that failure. Storage exhaustion follows the analogous rule.
+For example, rejection logging cannot move a pending Spinning round to the last
+revision, because that snapshot still requires three further revisions.
+
+Storage adapters reserve bytes/records for the same terminal paths and their
+worst-case serialized sizes. New events, state transitions or multiplier features
+must update the shared budget and path-coverage tests before being enabled.
+The native adapter will test this contract; the later NVS adapter must implement
+it rather than assuming separate key writes are one transaction.
 
 `Snapshot` is a logical model. NVS serialization will explicitly encode versioned
 fields and integrity checks, including committed event history. It must not write
@@ -361,7 +396,9 @@ Each logical implementation commit will include its native tests and must pass
    repeated canonical selection limits, capacities, and overflow boundaries.
 3. Atomic in-memory storage and event batches. Test sequence/revision continuity,
    immutable earlier events, full storage and terminal reserve, corrupt records,
-   and old-or-new visibility across interrupted commits.
+   and old-or-new visibility across interrupted commits. At counters near their
+   maximum, rejected commands must preserve enough IDs to resolve every state
+   and reach Idle; verify normal, refund and recovery paths against the budget.
 4. Guarded rounds, seats, accounting and faults. Exercise every command/state
    pair, transitions/rejections, eight seats, closing behavior, deadlines and
    timer rollover, stale/malformed sensor reports, no-spin and invalid-index
