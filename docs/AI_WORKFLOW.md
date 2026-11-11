@@ -292,3 +292,17 @@ Three agents independently reviewed the implementation's domain, engine and
 storage integration after it was written. They found no additional concrete
 reachable defect. This is not proof that the software is bug-free, and native
 memory-journal tests do not establish physical storage durability.
+
+## 2026-11-11 — Phase 1 run instructions and review handoff
+
+Updated README and the design document to reflect the implemented Phase 1,
+actual test layout and run commands. Added a JavaScript-oriented C++ walkthrough
+with a complete scripted round. The guide's example was extracted, compiled with
+all core sources using strict C++17 flags and run successfully; it printed
+`Seat 0: 275, house: -175`, matching its stated accounting example. Local Markdown
+links, paired code fences and `git diff --check` passed.
+
+The implementation was saved in separate logical commits for domain/build,
+ledger/storage, engine/recovery and documentation. The assistant stopped at the
+Phase 1 review boundary. No multiplier implementation, CLI, browser application,
+firmware, hosted demo or real-device durability test was completed or claimed.

@@ -1,14 +1,15 @@
-# Phase 1: proposed structure and public interfaces
+# Phase 1: design and public interfaces
 
-Status: **proposal awaiting the user's OK**. Runtime functions are declarations
-only. Default field values and fixed capacity constants are included so the types
-are readable. No Phase 1 game behavior has been implemented.
+Status: **implemented after user approval; ready for Phase 1 review**. This document
+began as the header-only proposal and now records the implemented contracts.
+See [README](../README.md) for setup and [the walkthrough](PHASE_1_GUIDE.md) for
+a runnable example and plain-language C++ explanations.
 
 The user has since added [Phase 3B and Phase 4–5 extensions](PHASE_3B_PROPOSAL.md).
-Its core API implications are recorded there. The headers remain a proposal.
+Its future core API implications are recorded there.
 The two earlier review findings now have corrected contracts: timestamped wheel
 batches and terminal counter/space reservations. Their runtime regression tests
-remain pending implementation.
+are included in the native suites.
 
 ## Folder structure
 
@@ -17,9 +18,10 @@ Paths marked `[later]` are a plan, not existing implementations.
 ```text
 mini-etg-roulette/
 ├── README.md
-├── platformio.ini                         [later: native + ESP32 environments]
+├── platformio.ini                         [native now; ESP32 later]
+├── requirements-dev.txt                   [pinned PlatformIO version]
 ├── core/
-│   ├── library.json                       [later: shared PlatformIO library]
+│   ├── library.json                       [shared PlatformIO library]
 │   ├── include/mini_etg/
 │   │   ├── types.hpp
 │   │   ├── random.hpp
@@ -29,17 +31,11 @@ mini-etg-roulette/
 │   │   ├── events.hpp
 │   │   ├── storage.hpp
 │   │   └── engine.hpp
-│   └── src/                               [later: matching .cpp definitions]
-├── test/                                  [later: PlatformIO test discovery]
-│   ├── test_native/
-│   │   ├── test_main.cpp
-│   │   ├── test_wheel.cpp
-│   │   ├── test_random.cpp
-│   │   ├── test_bets.cpp
-│   │   ├── test_accounting.cpp
-│   │   ├── test_round.cpp
-│   │   ├── test_events.cpp
-│   │   └── test_recovery.cpp
+│   └── src/                               [seven .cpp implementation files]
+├── test/                                  [PlatformIO test discovery]
+│   ├── test_domain/test_main.cpp
+│   ├── test_storage/test_main.cpp
+│   ├── test_engine/test_main.cpp
 │   └── support/
 │       ├── seeded_random.hpp
 │       ├── fake_wheel.hpp
@@ -58,6 +54,7 @@ mini-etg-roulette/
 ├── tools/                                 [Phases 2, 4 and 5: math, monitor, plots]
 ├── docs/
 │   ├── PHASE_1_PROPOSAL.md
+│   ├── PHASE_1_GUIDE.md
 │   ├── PHASE_3B_PROPOSAL.md
 │   ├── AI_WORKFLOW.md
 │   └── MATH.md                            [Phase 2]
@@ -66,14 +63,14 @@ mini-etg-roulette/
     └── ci.yml                             [Phase 5: full native/firmware checks]
 ```
 
-Tests live in the same repository and arrive with each implementation step.
+Tests live in the same repository and accompany each implementation step.
 PlatformIO's `test/` location keeps `pio test -e native` straightforward.
 Desktop, test, browser WASM, and ESP32 adapters will all use the same `core/` library.
-There will be no Arduino headers in `core/`.
+There are no Arduino headers in `core/`.
 
 ## Public header index
 
-These files contain the complete proposed declarations, not snippets.
+These files contain the complete public declarations, not snippets.
 
 | Header | Responsibility |
 | --- | --- |
@@ -97,7 +94,7 @@ A sensor reports a **physical index**, not the printed number. Index 1 maps to
 number 32. Separate `PocketIndex` and `Number` structs make an accidental mix-up
 a compile error when passed to functions.
 
-The proposed clockwise wheel order, starting at zero, is:
+The clockwise wheel order, starting at zero, is:
 
 ```text
 0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8,
@@ -114,7 +111,7 @@ more bytes than a bit mask but makes inspection and explanation simple. Convenie
 builders create dozens, columns, and even-money selections; validation still runs
 for caller-built selections.
 
-Proposed geometry rules:
+Implemented geometry rules:
 
 - Straight: one number, including zero.
 - Split: two layout neighbours, including `{0,1}`, `{0,2}`, `{0,3}`.
@@ -125,7 +122,7 @@ Proposed geometry rules:
 - Dozen/column: exactly one of the three defined twelve-number sets.
 - Red/black, odd/even, low/high: the exact eighteen-number set; zero loses.
 
-The inclusion of zero trios and first-four is an explicit proposed choice. Their
+The inclusion of zero trios and first-four is an explicit project choice. Their
 11:1 and 8:1 odds respectively are shown in this
 [operator's roulette layout and payout guide](https://countryclubtasmania.com.au/wp-content/uploads/2025/05/MAR2-724-WP-CC_Roulette_HowToPlay-4pDL.pdf).
 
@@ -148,15 +145,16 @@ a split's input order or submitting it again cannot bypass the limit. The per-se
 total limit also includes every accepted placement. Rejecting a bet leaves credits
 and the output bet ID unchanged.
 
-Proposed project capacity: eight seats, sixteen accepted placements per seat,
+Project capacity: eight seats, sixteen accepted placements per seat,
 128 overall. Unused seats can have zero credits. This capacity is a memory budget,
 not a roulette rule. Full capacity returns `BetCapacityReached`.
 
-All randomness passes through `IRandom::next_u32()`. `uniform_below()` will reject
+All randomness passes through `IRandom::next_u32()`. `uniform_below()` rejects
 the extra part of the uint32 range before reducing it to a requested range; directly
-using `word % 37` would give some results more input words than others. Tests and
-the simulator will use a seeded `std::mt19937` adapter and our own bounded mapping,
-so they do not depend on `std::uniform_int_distribution` sequence choices.
+using `word % 37` would give some results more input words than others. Tests use
+a seeded `std::mt19937` adapter and our own bounded mapping; the future simulator
+will do the same. This avoids dependence on `std::uniform_int_distribution`
+sequence choices.
 
 ## State machine and wheel boundary
 
@@ -220,7 +218,7 @@ failure is itself returned and latches `RecoveryRequired`; the engine must not
 pretend a rejection was durably logged when the device could not store it.
 Commands cannot promise durable logging before successful initialization/recovery.
 
-**Fault policy to review:** faults before a durable valid result void the round.
+**Fault policy:** faults before a durable valid result void the round.
 After durable `Result`, settlement is compulsory to satisfy exactly-once recovery;
 an attempt to void it is rejected and logged. This prevents a recorded losing
 result from being replaced by a refund. `Idle -> Fault` has no active stakes and
@@ -272,7 +270,7 @@ transfers are allowed only in `Idle`; they change the next round's starting tota
 `Idle` can retain the previous result/bets for display, so its historical
 `opening_total` is excluded from the current-round accounting check.
 
-Proposed meter meanings: a seat plays a game only if it has active stakes when
+Meter meanings: a seat plays a game only if it has active stakes when
 bets close in a non-void round. It wins a game if its total gross returns exceed
 its total settled stakes. Voided rounds increase neither counter. Payout commits
 update meters once. In Phase 3B, a fully cleared seat therefore does not count as
@@ -330,7 +328,7 @@ revision, because that snapshot still requires three further revisions.
 Storage adapters reserve bytes/records for the same terminal paths and their
 worst-case serialized sizes. New events, state transitions or multiplier features
 must update the shared budget and path-coverage tests before being enabled.
-The native adapter will test this contract; the later NVS adapter must implement
+The native adapter tests this contract; the later NVS adapter must implement
 it rather than assuming separate key writes are one transaction.
 
 `Snapshot` is a logical model. NVS serialization will explicitly encode versioned
@@ -362,7 +360,7 @@ credit ledger; there is no external cash device in this project.
 
 | C++ construct | Connection to JavaScript and why it is here |
 | --- | --- |
-| Header declarations | Like a module's public contract/type declarations. Function bodies will live in `.cpp` files; the linker connects them. These headers alone do not make a runnable program. |
+| Header declarations | Like a module's public contract/type declarations. Function bodies live in `.cpp` files; the linker connects them. Headers alone do not make a runnable program. |
 | `namespace mini_etg` | Groups project names, similar to keeping exports under one module name. |
 | `using Credits = std::int64_t` | A readable name for a signed, exactly 64-bit integer. Unlike JS `Number`, it stores integer credits exactly within a bounded range. It is an alias, not a new distinct type. |
 | `struct Number` vs `struct PocketIndex` | Small distinct value types. Both contain one byte but cannot be passed interchangeably without explicit conversion. |
@@ -373,10 +371,10 @@ credit ledger; there is no external cash device in this project.
 | `IWheel&` | A borrowed reference to an existing object. The caller constructs it first and keeps it alive longer than the engine. |
 | `const Snapshot&` | A read-only borrowed view. It avoids copying the ledger. It is valid only after successful initialization/recovery, and later commands can update what it shows. |
 | `Error` + an output reference | Instead of throwing, return a named status and write the output on success. This keeps error paths visible. A rejected command can still append its audit event. |
-| `noexcept` | A promise that an exception will not escape a function; it is not automatic error handling. Implementation will also build the core with exceptions disabled. |
+| `noexcept` | A promise that an exception will not escape a function; it is not automatic error handling. The native target also builds the core with exceptions disabled. |
 | `= delete` | Prevent copying the engine. Two accidental copies could both try to control one wheel and ledger. |
 | `{}` / default member values | Predictable initialization of fields. A zero-filled value is not necessarily a valid bet; validators still run. |
-| `inline constexpr` vs `extern const` | Capacity constants can be shared from a header. The wheel array is declared here and will have one definition in a `.cpp` file. |
+| `inline constexpr` vs `extern const` | Capacity constants can be shared from a header. The wheel array is declared here and has one definition in a `.cpp` file. |
 
 The engine owns fixed snapshots and staging buffers. Construct one engine with
 sufficient lifetime, preferably static storage on ESP32 rather than a small task
@@ -385,9 +383,9 @@ strings. This describes `core/`; allocation inside a future SDK adapter must be
 audited separately. One task calls the engine; an ISR only hands observations to
 the adapter.
 
-## Planned acceptance checks and commits after approval
+## Acceptance checks
 
-Each logical implementation commit will include its native tests and must pass
+Each logical implementation step includes native tests. The acceptance command is
 `pio test -e native`. Stop after Phase 1 for user review before Phase 2.
 
 1. Native build setup, checked arithmetic, wheel order/colours, seeded RNG and
@@ -414,5 +412,7 @@ Each logical implementation commit will include its native tests and must pass
    history and sequence numbers. Specifically crash after durable `Spinning`
    before wheel start, and after durable `Payout` before RAM publication.
 
-No implementation step above is complete yet. The current proposal needs review
-before step 1 starts.
+These checks now run against the implementation in the three native suites.
+The memory adapter simulates crashes before or after an atomic commit; it is not
+a persistent file or NVS implementation. Actual device durability remains an
+adapter obligation for later phases. See `AI_WORKFLOW.md` for the observed results.
