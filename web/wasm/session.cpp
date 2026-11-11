@@ -76,10 +76,11 @@ Error Session::open_with_bots() {
 }
 
 std::string Session::after(Error error) {
-    if (engine_.status() == RuntimeStatus::Ready) {
-        const auto history_error = history_.sync(*storage_, engine_.snapshot());
-        if (history_error != Error::Ok) return error_text(history_error);
-    }
+    // Preserve the original storage diagnostic when the next clock tick arrives.
+    // A failed projection must also stop; replay resumes from a fresh session.
+    if (engine_.status() != RuntimeStatus::Ready) stopped_error_ = error;
+    else stopped_error_ = history_.sync(*storage_, engine_.snapshot());
+    if (stopped_error_ != Error::Ok) return error_text(stopped_error_);
     if (error == Error::LimitExceeded) {
         const auto& limits = engine_.snapshot().config.limits;
         return "Table limit reached. Minimum placement " + std::to_string(limits.min_per_bet) +
@@ -90,6 +91,7 @@ std::string Session::after(Error error) {
 }
 
 std::string Session::tick(TickMs now) {
+    if (stopped_error_ != Error::Ok) return error_text(stopped_error_);
     if (!started_ || engine_.status() != RuntimeStatus::Ready) return error_text(Error::NotReady);
     const auto before = engine_.snapshot().round.state;
     if (before != RoundState::Spinning && remaining_ms(now) > 0) return {};

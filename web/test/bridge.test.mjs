@@ -57,7 +57,7 @@ step('tick', 94400)
 step('tick', 95400)
 const paid = step('tick', 100400)
 
-function nativeTrace() {
+function nativeTrace(customTable = false) {
   const dir = mkdtempSync(join(tmpdir(), 'roulette-parity-'))
   const sources = dir => readdirSync(join(root, dir)).filter(s => s.endsWith('.cpp')).map(s => join(dir, s))
   try {
@@ -66,7 +66,7 @@ function nativeTrace() {
       '-Icore/include', '-Isim/shared/include', '-Iweb/wasm', ...sources('core/src'), ...sources('sim/shared/src'),
       'web/wasm/catalog.cpp', 'web/wasm/history.cpp', 'web/wasm/session.cpp', 'web/test/native_trace.cpp',
       '-o', binary], { cwd: root, stdio: 'inherit' })
-    return execFileSync(binary, { input: fixture.join('\n') + '\n', encoding: 'utf8', maxBuffer: 10e6 })
+    return execFileSync(binary, customTable ? ['custom-table'] : [], { input: fixture.join('\n') + '\n', encoding: 'utf8', maxBuffer: 10e6 })
       .trimEnd().split('\n').map(line => {
         const [answer, view] = line.split('\t')
         return { answer, view: JSON.parse(view) }
@@ -74,14 +74,18 @@ function nativeTrace() {
   } finally { rmSync(dir, { recursive: true, force: true }) }
 }
 
-test('native and WASM agree on all meters, bets, pockets, events, recovery and RTP', async () => {
+async function isolatedEngine() {
   const saved = new Map()
-  globalThis.localStorage = {
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
     getItem: key => saved.get(key) ?? null,
     setItem: (key, value) => saved.set(key, value)
-  }
+  } })
   const wasmBinary = readFileSync(new URL('../public/engine/roulette.wasm', import.meta.url))
-  const wasm = await createModule({ wasmBinary })
+  return createModule({ wasmBinary })
+}
+
+test('native and WASM agree on all meters, bets, pockets, events, recovery and RTP', async () => {
+  const wasm = await isolatedEngine()
   const expected = nativeTrace()
   let session
   try {
@@ -129,4 +133,70 @@ test('native and WASM agree on all meters, bets, pockets, events, recovery and R
     assert.equal(new Set(catalog.selections.map(s => s.kind + s.numbers.join(','))).size, 157)
     assert.equal(new Set(catalog.wheel.map(p => p.number)).size, 37)
   } finally { session?.delete() }
+})
+
+test('theoretical line follows the settled wager mix under a different Lucky configuration', () => {
+  const { view } = nativeTrace(true)[recoveredPaid]
+  // Native fixture: 5/37 boosted numbers at 100x, remaining numbers at 6x.
+  // First round settled one 50-credit human straight and one 5-credit bot
+  // straight, with 50 credits in outside/inside non-straight bot wagers.
+  const straightRtp = (6 + 5 / 37 * (100 - 6)) / 37
+  const expected = (straightRtp * 55 + (36 / 37) * 50) / 105
+  assert.ok(Math.abs(view.charts.series[0].theoretical - expected) < 1e-12)
+  assert.ok(Math.abs(view.charts.series[0].observed - (105 - Number(view.house)) / 105) < 1e-12)
+})
+
+test('reload before detection refunds once at every pre-result state; Idle preserves funds', async () => {
+  for (const [before, times] of [
+    ['Idle', []], ['BetsOpen', [500]], ['BetsClosing', [500, 20500]],
+    ['BetsClosed', [500, 20500, 21700]], ['Spinning', [500, 20500, 21700, 23300]]
+  ]) {
+    const wasm = await isolatedEngine()
+    function newSession() {
+      const instance = new wasm.BrowserSession(42)
+      assert.equal(instance.start(0), '')
+      return instance
+    }
+    let session = newSession()
+    try {
+      for (const now of times) {
+        assert.equal(session.tick(now), '')
+        if (now === 500) assert.equal(session.place(0, 25n, 505), '')
+      }
+      assert.equal(JSON.parse(session.view()).state, before)
+      session.delete()
+      session = newSession()
+      const first = JSON.parse(session.view())
+      assert.equal(first.state, before === 'Idle' ? 'Idle' : 'Fault')
+      assert.equal(first.fault, before === 'Idle' ? 'None' : 'PowerLoss')
+      assert.equal(first.escrow, '0')
+      assert.ok(first.seats.every(s => s.credits === '1000' && s.gamesPlayed === '0'))
+      session.delete()
+      session = newSession()
+      const second = JSON.parse(session.view())
+      assert.equal(second.revision, first.revision)
+      assert.deepEqual(second.seats, first.seats)
+      assert.deepEqual(second.charts, first.charts)
+    } finally { session?.delete() }
+  }
+})
+
+test('a background-tab clock jump captures the sensor timestamp and pays the recorded pocket', async () => {
+  const wasm = await isolatedEngine()
+  const session = new wasm.BrowserSession(42)
+  try {
+    assert.equal(session.start(0), '')
+    for (const now of [500, 20500, 21700, 23300]) assert.equal(session.tick(now), '')
+    // The ball was sensed at 24,300, even though the tab woke an hour later.
+    const wake = 3623300
+    assert.equal(session.tick(wake), '')
+    const captured = JSON.parse(session.view())
+    assert.equal(captured.state, 'Result')
+    // No animation callback or rendering participates in settlement.
+    assert.equal(session.tick(wake + 3600000), '')
+    const paid = JSON.parse(session.view())
+    assert.equal(paid.state, 'Payout')
+    assert.deepEqual(paid.result, captured.result)
+    assert.equal(paid.charts.histogram[captured.result.number], 1)
+  } finally { session.delete() }
 })

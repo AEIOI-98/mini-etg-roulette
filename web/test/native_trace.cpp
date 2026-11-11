@@ -8,9 +8,25 @@
 
 using namespace mini_etg;
 
-int main() {
+int main(int argc, char**) {
     std::vector<Event> events(8192);
     auto storage = std::make_shared<sim::MemoryJournal>(events.data(), events.size());
+    if (argc > 1) {
+        EngineConfig config{};
+        config.lucky.enabled = true;
+        config.lucky.base_straight_profit_odds = 5;
+        config.lucky.min_count = config.lucky.max_count = 5;
+        config.lucky.table_count = 1;
+        config.lucky.table[0] = {100, 1};
+        config.no_spin_timeout_ms = 1500;
+        config.ball_timeout_ms = 4000;
+        std::array<Credits, kSeatCount> funding{};
+        funding.fill(1000);
+        sim::SeededRandom random(42);
+        sim::SimulatedWheel wheel(random);
+        Engine initial(wheel, *storage, random);
+        if (initial.initialize(config, funding) != Error::Ok) return 1;
+    }
     std::unique_ptr<web::Session> session;
     std::string line;
     while (std::getline(std::cin, line)) {

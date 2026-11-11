@@ -38,6 +38,7 @@ private:
     Catalog catalog_;
     History history_;
     bool started_{false};
+    Error stopped_error_{Error::Ok};
     TickMs entered_at_{0};
     std::string recovery_, armed_fault_;
 };
