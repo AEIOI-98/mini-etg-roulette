@@ -267,10 +267,11 @@ void test_count_range_full_capacity_and_seeded_reproducibility() {
             auto config = enabled();
             config.min_count = minimum;
             config.max_count = maximum;
-            for (std::uint32_t count_offset = 0; count_offset <= maximum - minimum; ++count_offset) {
+            const std::uint32_t count_options = maximum - minimum + 1;
+            for (std::uint32_t count_offset = 0; count_offset < count_options; ++count_offset) {
                 ScriptedRandom random;
                 random.words.fill(0xffffffffU);
-                random.words[0] = word_for(maximum - minimum + 1, count_offset);
+                random.words[0] = word_for(count_options, count_offset);
                 LuckyDraw draw{};
                 expect(Error::Ok, draw_lucky_numbers(random, config, draw));
                 TEST_ASSERT_EQUAL_UINT8(minimum + count_offset, draw.count);
