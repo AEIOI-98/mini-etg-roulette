@@ -164,7 +164,7 @@ export class Player {
       })
       if (!nodes.length) {
         const pending = document.createElement('span')
-        pending.className = 'etg-empty'; pending.textContent = 'Awaiting first result'; nodes.push(pending)
+        pending.className = 'etg-empty'; pending.textContent = 'No settled rounds yet'; nodes.push(pending)
       }
       n.recent.replaceChildren(...nodes)
     }
