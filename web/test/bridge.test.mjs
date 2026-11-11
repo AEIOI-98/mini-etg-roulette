@@ -200,3 +200,22 @@ test('a background-tab clock jump captures the sensor timestamp and pays the rec
     assert.equal(paid.charts.histogram[captured.result.number], 1)
   } finally { session.delete() }
 })
+
+test('out-of-range JS values cannot wrap into a valid one-credit or number-zero wager', async () => {
+  const wasm = await isolatedEngine()
+  const session = new wasm.BrowserSession(42)
+  try {
+    assert.equal(session.start(0), '')
+    assert.equal(session.tick(500), '')
+    for (const stake of [(1n << 64n) + 1n, -(1n << 64n) + 1n, 1, 1.5, '1']) {
+      assert.match(session.place(0, stake, 501), /stake/i)
+    }
+    for (const id of [2 ** 32, 0.5, -1, NaN, Infinity, '0', 0n, null]) {
+      assert.match(session.place(id, 1n, 501), /position/i)
+    }
+    const view = JSON.parse(session.view())
+    assert.equal(view.seats[0].credits, '1000')
+    assert.equal(view.bets.filter(b => b.seat === 0).length, 0)
+    assert.equal(view.events.filter(e => e.kind === 'CommandRejected').length, 13)
+  } finally { session.delete() }
+})

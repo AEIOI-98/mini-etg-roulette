@@ -66,7 +66,7 @@ const char* fault_name(FaultCode fault) {
 const char* error_text(Error error) {
     constexpr const char* messages[] = {"", "Table needs recovery. Reload to inspect its journal.",
         "Table already initialized.", "Invalid table configuration.", "Unknown seat.", "Unknown number.",
-        "Unknown bet type.", "Unknown betting position.", "Choose a positive stake.", "Invalid bound.",
+        "Unknown bet type.", "Unknown betting position.", "Choose a positive whole-credit stake within the signed 64-bit range.", "Invalid bound.",
         "Betting has closed for this round.", "This seat has insufficient credits.",
         "Table limit reached. Check the selection and seat limits.", "This seat already has 16 active bets.",
         "This wager would exceed the supported credit range.", "The journal counter is full.",
