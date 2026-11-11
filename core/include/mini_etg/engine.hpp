@@ -57,7 +57,8 @@ public:
     Error acknowledge_fault() noexcept; // Fault -> Idle, only with zero escrow.
 
 private:
-    // Private helpers are declarations too: there is no game implementation yet.
+    // Build each change in the preallocated buffer before publishing it.
+    void begin_commit() noexcept;
     Error publish() noexcept;
     Error reject(Command command, Error reason) noexcept;
     Error transition(RoundState next, Command command) noexcept;

@@ -253,3 +253,42 @@ claim process-exit durability or implement NVS/localStorage.
 The only public model addition was `validate_snapshot()`, so the engine and test
 adapter share the same structural and accounting checks. No user-requested rule
 was changed or rejected.
+
+## 2026-11-11 — Phase 1 engine, faults and recovery
+
+Implemented all guarded round commands and eight-seat credit/meter updates.
+Accepted stakes move into escrow; acceptance checks every possible result's
+settlement arithmetic and meter headroom. State, money and event changes share
+one atomic journal commit, published to RAM only after success. Explicit errors
+replace exceptions, and engine snapshots/event buffers have fixed capacity.
+
+Wheel observations are validated as a whole bounded batch before a result is
+trusted. Capture times determine deadlines, including delayed polling and uint32
+rollover. Faults before Result refund; faults after a durable Result are rejected
+so recovery must settle the recorded outcome. Storage/commit errors stop ordinary
+progression until recovery.
+
+The first full native run passed 65 of 66 cases. Its corrupt-storage case showed
+that `initialize()` returned generic `NotReady` after failed recovery, hiding the
+underlying `StorageCorrupt` diagnostic. The assistant moved the initialization
+status check after the storage read. Corrupt storage remains a concrete error;
+an uncertain prior write still requires recovery even if storage appears empty.
+The existing test was retained, and the subsequent full suite passed.
+
+Four more focused cases were added for empty rounds, invalid explicit fault codes,
+half-range clock ambiguity and a deterministic 50-round accounting campaign. The
+campaign independently tracks seat balances, house result and meters across eight
+seats, transfers, normal payouts, operator refunds and power-loss recovery. Its
+draws use the existing seeded `IRandom` adapter and rejection-sampling helper.
+
+Final `pio test -e native` result after all code changes: **70 passed, 0 failed**
+(13 domain, 15 storage/model, 42 engine). Engine coverage includes every illegal
+command/state pair, all 128 bet slots, crash before/after each money or state
+commit, crash during recovery, repeated recovery without duplicate payments,
+terminal storage/counter reserves, event continuity and zero observed C++ heap
+allocations in the exercised round path.
+
+Three agents independently reviewed the implementation's domain, engine and
+storage integration after it was written. They found no additional concrete
+reachable defect. This is not proof that the software is bug-free, and native
+memory-journal tests do not establish physical storage durability.
