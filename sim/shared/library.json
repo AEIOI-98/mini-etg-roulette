@@ -1,0 +1,9 @@
+{
+  "name": "mini-etg-sim",
+  "version": "0.1.0",
+  "description": "Shared portable roulette bots, seeded RNG, wheel and RAM journal",
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}

@@ -423,3 +423,29 @@ whitespace checks passed across the complete Phase 2 diff. Changes were saved
 as logical commits for the Lucky domain/math API, engine persistence/recovery,
 Monte Carlo tooling/results and documentation. The assistant stopped for Phase 2
 review. No Phase 3 CLI, browser, firmware or PNG plotting was implemented.
+
+## 2026-11-11 — Approved Phase 3: shared simulation components
+
+After the Phase 2 handoff, the user said "continue". The assistant proceeded with
+Phase 3 and retained the review boundary before Phase 3B. Implementation was split
+into shared wheel/bots/RNG, the session journal, native tests, and the CLI; the
+assistant implemented the CLI and coordinated integration and documentation.
+
+Added `sim/shared/` as a portable PlatformIO library for later browser reuse.
+It supplies a seeded MT19937 adapter, a timestamped simulated `IWheel`, and eight
+fixed betting strategies. The wheel supports one-shot no-spin, ball-timeout,
+invalid-sensor and start-failure faults. Each valid start attempt consumes a
+bounded pocket draw, even on a fault, so subsequent results stay aligned.
+Polling preserves observation times, handles rollover and emits each report once.
+
+Bots choose one request per seat per round using core selection builders. They
+reduce fixed five/ten-credit stakes to affordable table limits, skip existing or
+unaffordable bets, and never change credits or calculate payouts. The eight
+strategies cover fixed/random straights, red, alternating odd/even, rotating
+dozens/columns, random horizontal splits and cycling street/corner/six-line bets.
+
+All 14 new shared-component tests passed. They cover known/repeatable RNG output,
+partial/delayed/wrapped polling, cancellation, invalid inputs, every wheel fault
+through the real engine, subsequent result alignment, all bot strategies and
+limits, 100 complete Lucky rounds, and no observed C++ allocations in the shared
+round path. Existing core game logic was reused without production changes.
