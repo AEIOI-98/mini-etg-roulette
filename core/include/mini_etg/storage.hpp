@@ -26,6 +26,12 @@ struct ResolutionReserve {
 Error required_resolution_reserve(const Snapshot& next,
                                   ResolutionReserve& out) noexcept;
 
+// Shared by the RAM, browser and firmware storage adapters.
+bool valid_event_metadata(const Event& event) noexcept;
+bool valid_event_payload(const Event& event, const Snapshot& latest) noexcept;
+Error validate_journal_append(Revision previous_revision, Sequence previous_sequence,
+                              std::size_t capacity, const JournalCommit& transaction) noexcept;
+
 class IStorage {
 public:
     virtual ~IStorage() = default;
