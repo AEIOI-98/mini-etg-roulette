@@ -1,24 +1,36 @@
-name: Test and deploy browser terminal
+name: Test engine, build firmware and deploy browser terminal
 on:
   push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: pages
-  cancel-in-progress: false
 jobs:
-  build:
+  platformio:
+    name: PlatformIO (${{ matrix.environment }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [native, esp32dev]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install -r requirements-dev.txt
-      - run: pio test -e native
-      - run: python3 sim/test_cli.py
+      - if: matrix.environment == 'native'
+        run: pio test -e native
+      - if: matrix.environment == 'native'
+        run: python3 sim/test_cli.py
+      - if: matrix.environment == 'esp32dev'
+        run: pio run -e esp32dev
+
+  build:
+    name: Build and test browser terminal
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -46,8 +58,11 @@ jobs:
         with:
           path: web/dist
   deploy:
-    needs: build
+    needs: [platformio, build]
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     permissions:
       pages: write
       id-token: write
