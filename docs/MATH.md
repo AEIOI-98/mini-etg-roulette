@@ -4,6 +4,19 @@ This is an educational probability model with integer credits. It does not use
 real money or claim certification. The calculation describes long-run expected
 returns, not the result a player should expect from a short session.
 
+## What passes review
+
+| Check | Acceptance criterion |
+| --- | --- |
+| Default multiplier table | The calculated Lucky straight RTP must be within **0.1 percentage point** of the European baseline of 36/37. The default weights give exactly 36/37. |
+| Published experiment | Choose the seed before running at least 10,000,000 spins. Publish the seed, observed RTP and approximate 95% interval for each wager, plus the 37 pocket counts. Repeating that published run must reproduce the saved report and CSVs. |
+
+In the published experiment, the standard bet on zero returned 96.909480% and
+its interval ended at 97.270611%, below the 97.297297% theoretical return.
+That observation stays in the report. Sampling variation belongs to the
+measurement, and the tolerance applies to the calculation.
+[Analytical test](../test/test_lucky/test_main.cpp) · [Recorded experiment](../tools/results/RESULTS.md)
+
 ## What a multiplier means
 
 A **50× multiplier is a total return of 50 times the stake**, including the
@@ -217,7 +230,7 @@ three generated files in that directory:
   credit totals, intervals, seeds, wheel chi-square and draw diagnostics.
 - [histogram.csv](../tools/results/histogram.csv): all 37 observed/expected counts.
 - [convergence.csv](../tools/results/convergence.csv): cumulative returns and RTP
-  every 100,000 spins, plus the final sample, ready for Phase 5 plotting.
+  every 100,000 spins, plus the final sample used in the README chart.
 
 The wheel uses an MT19937 stream seeded with the command-line seed. The Lucky
 stream uses a separate MT19937 instance seeded with `seed XOR 0x9e3779b9`. All
@@ -231,7 +244,9 @@ engine rounds. Native tests separately exercise the full state machine, accepted
 bets, durable reveal, accounting, faults and recovery. This separation makes the
 math experiment practical while keeping game rules in C++.
 
-The optional tooling checks run with `python3 tools/test_math_tool.py`. Short
-runs are labeled smoke runs and do not satisfy the ten-million-spin acceptance
-requirement. The [eight-bot CLI](PHASE_3_GUIDE.md) now exercises complete engine
-rounds; PNG plotting remains a later phase.
+Run `python3 tools/test_math_tool.py` to check the published seed and outputs
+in a temporary directory. CI runs this suite on pushes and pull requests.
+Shorter runs exercise inputs and accounting and are labeled as smoke runs.
+The eight-bot CLI exercises complete engine rounds. The plotting script reads
+the two CSV files to draw the README charts. [CLI guide](PHASE_3_GUIDE.md) ·
+[Plotting script](../tools/plots.py)

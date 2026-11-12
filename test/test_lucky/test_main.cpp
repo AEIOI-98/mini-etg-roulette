@@ -442,7 +442,8 @@ void test_analytical_default_rtp_and_variance() {
     near(104, math.expected_multiplier);
     near(36.0 / 37.0, math.straight_rtp);
     near(80904.0 / 1369.0, math.straight_return_variance);
-    TEST_ASSERT_TRUE(std::fabs(math.straight_rtp - 0.9730) < 0.001);
+    // The design tolerance is 0.1 percentage point around the European baseline.
+    TEST_ASSERT_TRUE(std::fabs(math.straight_rtp - 36.0 / 37.0) <= 0.001);
     expect(Error::Ok, analyze_lucky(LuckyConfig{}, math));
     near(0, math.expected_count);
     near(0, math.expected_multiplier);
