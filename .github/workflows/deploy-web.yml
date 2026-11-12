@@ -1,12 +1,14 @@
 name: Test engine, build firmware and deploy browser terminal
 on:
   push:
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   platformio:
     name: PlatformIO (${{ matrix.environment }})
+    if: github.event.deleted != true
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -14,6 +16,8 @@ jobs:
         environment: [native, esp32dev]
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -22,15 +26,20 @@ jobs:
         run: pio test -e native
       - if: matrix.environment == 'native'
         run: python3 sim/test_cli.py
+      - name: Test math tooling and serial monitor
+        if: matrix.environment == 'native'
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
       - if: matrix.environment == 'esp32dev'
         run: pio run -e esp32dev
 
   build:
     name: Build and test browser terminal
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || (github.ref == 'refs/heads/main' && github.event.deleted != true)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -53,11 +62,12 @@ jobs:
         working-directory: web
       - run: npm run test:browser
         working-directory: web
-      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
         with:
           path: web/dist
   deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: [platformio, build]
     runs-on: ubuntu-latest
     concurrency:
@@ -70,6 +80,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/configure-pages@v5
       - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4

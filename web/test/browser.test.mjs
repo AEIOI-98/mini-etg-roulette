@@ -69,7 +69,10 @@ test('Pages assets, shared seat meters, fault refunds and writer handoff in Chro
       await move(6600); await move(600)
     }
     await page.getByRole('link',{name:'Player terminal',exact:true}).click()
-    await spot.click()
+    await page.getByRole('button', {name:'10 credit chip', exact:true}).click()
+    await page.getByRole('button', {name:'Red', exact:true}).click()
+    assert.equal(await page.locator('[data-node="credits"]').innerText(), '990')
+    assert.equal(await page.locator('[data-node="stake"]').innerText(), '10')
     // Watch a normal recorded result, leave the animation by switching routes,
     // and confirm the core still settles it exactly once.
     for (const [duration,phase] of [[20100,'No more bets'],[1300,'Bets closed'],[1700,'Spinning'],[1100,'Result']]) {
@@ -77,15 +80,20 @@ test('Pages assets, shared seat meters, fault refunds and writer handoff in Chro
       assert.equal(await page.locator('[data-node="phase"]').innerText(),phase)
     }
     assert.ok(await page.locator('.etg-lucky-pick').count() > 0)
+    const resultColour = await page.locator('[data-node="clock"]').getAttribute('class')
+    assert.match(resultColour, /\bn-(red|black|green)\b/)
+    const expectedBalance = resultColour.includes('n-red') ? '1,010' : '990'
     await page.getByRole('link',{name:'Operator',exact:true}).click()
     await move(5100)
     assert.equal(await page.locator('[data-op="state"]').innerText(),'Payout')
     assert.equal(await page.locator('[data-op="count"]').innerText(),'1 settled round')
     const paidBalance = await seat.locator('td').nth(1).innerText()
+    assert.equal(paidBalance, expectedBalance)
+    assert.equal(await page.locator('[data-op="escrow"]').innerText(), '0')
     await move(3600); await move(600)
     await page.getByRole('link',{name:'Player terminal',exact:true}).click()
     await page.getByRole('button',{name:'Repeat last'}).click()
-    assert.equal(await page.locator('[data-node="stake"]').innerText(),'1')
+    assert.equal(await page.locator('[data-node="stake"]').innerText(),'10')
     // Closing the writer simulates a crash during open betting. The waiting mirror
     // must acquire the lock before recovery and publish a single refund.
     await page.close()

@@ -12,6 +12,10 @@ the same round on an ESP32 with simulated wheel sensors and an OLED.
 **Educational demo only. No real money. Not certified gaming software.**
 No company products or proprietary features are reproduced.
 
+To follow one wager through all three targets, start with the 10-credit bet on
+red. The walkthrough includes a runnable native/WebAssembly comparison and
+an interview demo of a reset before and after the result. [Build plan and first wager](docs/BUILD_PLAN.md)
+
 ## Run the ESP32 wheel in Wokwi
 
 [Start with the Wokwi guide](docs/PHASE_4_GUIDE.md) for the prebuilt firmware,
@@ -21,7 +25,7 @@ this repository, run `pio run -e esp32dev`, then choose **Wokwi: Start Simulator
 Tap **Bets** to stake 10 demo credits on red. Tap it again to close betting,
 then tap **Launch**. **Fault** drops a pocket pulse so you can see the refund.
 Hold **Launch** for 1.2 seconds while bets are open to reboot the chip and see
-NVS restore the balance on the OLED.
+NVS restore the balance on the OLED. [Watch the reset demo](#esp32-reset-recovery-in-wokwi)
 
 ## Run the browser terminal
 
@@ -82,9 +86,11 @@ framework. PlatformIO and build caches stay in the ignored `.pio-core/` and
 and RTTI disabled. Windows users can activate `.venv\Scripts\activate`
 instead of the POSIX `source` command.
 
-On every push, GitHub Actions runs the native tests and builds the ESP32
-firmware. On `main`, it also tests the browser terminal before deploying it
-to Pages. [CI runs](https://github.com/AEIOI-98/mini-etg-roulette/actions/workflows/deploy-web.yml)
+On pushes and pull requests, GitHub Actions runs the native, CLI, math and
+serial monitor tests and builds the ESP32 firmware. Pull requests and builds
+of `main` also compile WebAssembly and exercise the terminal in Chrome.
+Successful builds of `main` publish to Pages.
+[CI runs](https://github.com/AEIOI-98/mini-etg-roulette/actions/workflows/deploy-web.yml)
 
 <details>
 <summary>What the 153 native tests cover</summary>
@@ -134,7 +140,10 @@ python3 tools/run_math.py --spins 10000000 --seed 20261111
 
 Return to player (RTP) is the total credits returned divided by the total
 wagered. With the default multiplier weights, the expected RTP is exactly
-36/37 (about **97.2973%**) in both modes.
+36/37 (about **97.2973%**) in both modes. The design allows a difference of
+up to 0.1 percentage point in the calculated Lucky return. The simulation
+reports its observed return and uncertainty for a seed chosen in advance.
+[Math acceptance criteria](docs/MATH.md#what-passes-review)
 
 | Experiment | Spins | Observed RTP | Approximate 95% interval |
 | --- | ---: | ---: | --- |
@@ -230,8 +239,17 @@ The wheel, rules, payouts and seven bots run in C++.
 
 ## Demo recordings
 
-- **Web terminal GIF** — reserved for a round from bet placement through payout.
-- **Wokwi recording** — reserved for the OLED wheel, result and reset recovery.
+### ESP32 reset recovery in Wokwi
+
+![ESP32 refunding a 10-credit red wager to 1,000, then paying red 23 to 1,010 and retaining that balance on another reset](docs/images/wokwi-recovery.gif)
+
+This run shows both sides of the journal write. The first reset refunds the
+open wager. In the next round the sensor records red 23, and recovery credits
+the 20-credit gross return. The last reset shows **Already paid** and the
+same 1,010 credits. The recorded take was selected for its red win.
+[Perform the demo and trace the journal write](docs/BUILD_PLAN.md#lead-the-recovery-demonstration)
+
+**Web terminal GIF** — reserved for a round from bet placement through payout.
 
 ## Built with AI assistance
 

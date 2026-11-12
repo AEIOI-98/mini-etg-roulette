@@ -57,7 +57,7 @@ step('tick', 94400)
 step('tick', 95400)
 const paid = step('tick', 100400)
 
-function nativeTrace(customTable = false) {
+function nativeTrace(commands, customTable = false) {
   const dir = mkdtempSync(join(tmpdir(), 'roulette-parity-'))
   const sources = dir => readdirSync(join(root, dir)).filter(s => s.endsWith('.cpp')).map(s => join(dir, s))
   try {
@@ -66,7 +66,7 @@ function nativeTrace(customTable = false) {
       '-Icore/include', '-Isim/shared/include', '-Iweb/wasm', ...sources('core/src'), ...sources('sim/shared/src'),
       'web/wasm/catalog.cpp', 'web/wasm/history.cpp', 'web/wasm/session.cpp', 'web/test/native_trace.cpp',
       '-o', binary], { cwd: root, stdio: 'inherit' })
-    return execFileSync(binary, customTable ? ['custom-table'] : [], { input: fixture.join('\n') + '\n', encoding: 'utf8', maxBuffer: 10e6 })
+    return execFileSync(binary, customTable ? ['custom-table'] : [], { input: commands.join('\n') + '\n', encoding: 'utf8', maxBuffer: 10e6 })
       .trimEnd().split('\n').map(line => {
         const [answer, view] = line.split('\t')
         return { answer, view: JSON.parse(view) }
@@ -84,9 +84,69 @@ async function isolatedEngine() {
   return createModule({ wasmBinary })
 }
 
+test('one red wager pays exactly once in native C++ and WebAssembly', async t => {
+  const wasm = await isolatedEngine()
+  const seed = 3 // First spin lands on 36, a red number.
+  let session = new wasm.BrowserSession(seed)
+  const commands = [], states = []
+  function record(command, answer) {
+    assert.equal(answer, '', command)
+    const view = JSON.parse(session.view())
+    // The public terminal funds one human and seven bots. Escrow belongs to all eight.
+    const available = view.seats.reduce((sum, seat) => sum + BigInt(seat.credits), 0n)
+    assert.equal(available + BigInt(view.escrow) + BigInt(view.house), 8000n, command)
+    commands.push(command)
+    states.push({ answer, view })
+    return view
+  }
+  const tick = now => record(`tick ${now}`, session.tick(now))
+  const start = () => record(`start 0 ${seed}`, session.start(0))
+  function restart() {
+    session.delete()
+    session = new wasm.BrowserSession(seed)
+    return start()
+  }
+  try {
+    const initial = start()
+    assert.equal(initial.seats[0].credits, '1000')
+    const red = JSON.parse(session.catalog()).selections.find(bet => bet.kind === 'Red')
+    const place = now => record(`place ${now} ${red.id} 10`, session.place(red.id, 10n, now))
+    const open = tick(500)
+    const wager = place(510)
+    assert.equal(wager.seats[0].credits, '990')
+    assert.equal(BigInt(wager.escrow) - BigInt(open.escrow), 10n)
+    const refunded = restart()
+    assert.equal(refunded.fault, 'PowerLoss')
+    assert.equal(refunded.seats[0].credits, '1000')
+    assert.equal(refunded.escrow, '0')
+
+    tick(6500) // Acknowledge Fault and return to Idle.
+    tick(7000) // Bets open again.
+    place(7010)
+    for (const now of [27000, 28200, 29800]) tick(now) // Close betting and launch.
+    const result = tick(30800)
+    assert.equal(result.state, 'Result')
+    assert.equal(result.result.number, 36)
+    assert.equal(result.seats[0].credits, '990')
+    const paid = restart()
+    assert.equal(paid.state, 'Payout')
+    assert.equal(paid.playerReturn, '20')
+    assert.equal(paid.seats[0].credits, '1010')
+    assert.equal(paid.escrow, '0')
+    const again = restart()
+    assert.equal(again.revision, paid.revision)
+    assert.deepEqual(again.seats, paid.seats)
+    assert.deepEqual(nativeTrace(commands), states)
+    t.diagnostic(`Seat 0 started with ${initial.seats[0].credits}. Staking 10 on red left ${wager.seats[0].credits}. ` +
+      `A reset restored the balance to ${refunded.seats[0].credits}.`)
+    t.diagnostic(`The next round landed on red ${result.result.number}. Recovery returned ${paid.playerReturn} credits. ` +
+      `The balance was ${paid.seats[0].credits} after payout and ${again.seats[0].credits} after another reset.`)
+  } finally { session.delete() }
+})
+
 test('native and WASM agree on all meters, bets, pockets, events, recovery and RTP', async () => {
   const wasm = await isolatedEngine()
-  const expected = nativeTrace()
+  const expected = nativeTrace(fixture)
   let session
   try {
     const states = fixture.map((line, i) => {
@@ -136,7 +196,7 @@ test('native and WASM agree on all meters, bets, pockets, events, recovery and R
 })
 
 test('theoretical line follows the settled wager mix under a different Lucky configuration', () => {
-  const { view } = nativeTrace(true)[recoveredPaid]
+  const { view } = nativeTrace(fixture, true)[recoveredPaid]
   // Native fixture: 5/37 boosted numbers at 100x, remaining numbers at 6x.
   // First round settled one 50-credit human straight and one 5-credit bot
   // straight, with 50 credits in outside/inside non-straight bot wagers.

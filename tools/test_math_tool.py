@@ -83,6 +83,16 @@ class MathToolTests(unittest.TestCase):
         for field in ("standard_returned", "lucky_returned", "portfolio_returned"):
             self.assertGreaterEqual(int(rows[1][field]), int(rows[0][field]))
 
+    def test_published_experiment_reproduces_with_the_recorded_seed(self):
+        result = self.run_tool("--spins", "10000000", "--seed", "20261111", "--output", self.directory)
+        self.assertEqual(0, result.returncode, result.stderr)
+        published = ROOT / "tools" / "results"
+        # The report includes the observed returns and confidence intervals.
+        # Compare the recorded experiment even when an interval misses theory.
+        for name in ("RESULTS.md", "convergence.csv", "histogram.csv"):
+            with self.subTest(output=name):
+                self.assertEqual((published / name).read_text(), (self.directory / name).read_text())
+
     def test_invalid_output_path_fails_without_destroying_file(self):
         destination = self.directory / "existing-file"
         destination.write_text("keep me")
