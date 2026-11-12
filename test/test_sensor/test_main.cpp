@@ -118,6 +118,27 @@ void test_full_fifo_preserves_motion_and_timestamps_first_lost_input() {
     TEST_ASSERT_FALSE(capture.pop_through(lost_at, sample));
 }
 
+void test_a_late_fault_press_cannot_affect_the_next_spin() {
+    for (bool overflow : {false, true}) {
+        SensorCapture capture;
+        SensorSample sample{};
+        capture.start(10);
+        for (unsigned i = 0; i <= SensorCapture::last_tick; ++i) {
+            capture.capture_tick(timestamp(i));
+            if (!overflow && i < SensorCapture::last_tick)
+                TEST_ASSERT_TRUE(capture.pop_through(timestamp(i), sample));
+        }
+        TEST_ASSERT_FALSE(capture.arm_fault());
+        capture.stop();
+        capture.start(20);
+        capture.capture_tick(220);
+        capture.capture_tick(250);
+        TEST_ASSERT_TRUE(capture.pop_through(250, sample));
+        TEST_ASSERT_TRUE(capture.pop_through(250, sample));
+        TEST_ASSERT_TRUE(sample.pocket);
+    }
+}
+
 void test_stop_clears_pending_samples_but_preserves_explicit_next_fault() {
     SensorCapture capture;
     capture.start(13);
@@ -151,6 +172,7 @@ int main() {
     RUN_TEST(test_too_many_pocket_pulses_fault_before_next_index);
     RUN_TEST(test_settle_before_sync_or_twice_in_one_revolution_is_invalid);
     RUN_TEST(test_full_fifo_preserves_motion_and_timestamps_first_lost_input);
+    RUN_TEST(test_a_late_fault_press_cannot_affect_the_next_spin);
     RUN_TEST(test_stop_clears_pending_samples_but_preserves_explicit_next_fault);
     return UNITY_END();
 }

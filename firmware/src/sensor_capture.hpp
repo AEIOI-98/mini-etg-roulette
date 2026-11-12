@@ -28,11 +28,11 @@ public:
         landing_tick_ = 2 * pockets + landing_offset;
         skip_ = armed_;
         armed_ = false;
-        active_ = true;
+        state_ = State::Recording;
     }
 
     void stop() noexcept {
-        active_ = false;
+        state_ = State::Idle;
         skip_ = false;
         tick_ = 0;
         next_index_ = 0;
@@ -41,19 +41,23 @@ public:
         overrun_ = false;
     }
 
-    void arm_fault() noexcept {
-        if (active_) skip_ = true;
+    bool arm_fault() noexcept {
+        // A complete or overflowed capture can still be waiting in the FIFO
+        // while the engine shows Spinning. Never carry that button press over.
+        if (state_ == State::AwaitingPoll) return false;
+        if (state_ == State::Recording) skip_ = true;
         else armed_ = true;
+        return true;
     }
 
     // Inlined into the IRAM timer handler on ESP32. No allocation, division,
     // engine calls, device I/O, or iteration over the FIFO in the ISR.
     __attribute__((always_inline)) void capture_tick(TickMs at) noexcept {
-        if (!active_) return;
+        if (state_ != State::Recording) return;
         if (count_ == capacity) {
             overrun_ = true;
             lost_at_ = at;
-            active_ = false;
+            state_ = State::AwaitingPoll;
             return;
         }
         const bool index = tick_ == next_index_;
@@ -62,7 +66,7 @@ public:
         if (tick_ > 0) skip_ = false;
         samples_[(head_ + count_) % capacity] = {at, pocket, index, tick_ == landing_tick_, false};
         ++count_;
-        if (tick_ == last_tick) active_ = false;
+        if (tick_ == last_tick) state_ = State::AwaitingPoll;
         ++tick_;
     }
 
@@ -89,7 +93,9 @@ private:
     std::size_t head_{}, count_{};
     unsigned tick_{}, next_index_{}, landing_tick_{};
     TickMs lost_at_{};
-    bool active_{}, armed_{}, skip_{}, overrun_{};
+    enum class State { Idle, Recording, AwaitingPoll };
+    State state_{State::Idle};
+    bool armed_{}, skip_{}, overrun_{};
 };
 
 // This decoder has no access to the demo's random draw, timer tick number or

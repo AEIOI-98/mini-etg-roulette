@@ -11,7 +11,7 @@ class SensorWheel final : public IWheel {
 public:
     explicit SensorWheel(IRandom& random) noexcept : random_(random) {}
     bool begin() noexcept;
-    void arm_fault() noexcept;
+    bool arm_fault() noexcept;
     Error start(RoundId round, TickMs now) noexcept override;
     WheelBatch poll(TickMs now) noexcept override;
     void stop() noexcept override;

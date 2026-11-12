@@ -39,10 +39,11 @@ Error SensorWheel::start(RoundId round, TickMs) noexcept {
     return Error::Ok;
 }
 
-void SensorWheel::arm_fault() noexcept {
+bool SensorWheel::arm_fault() noexcept {
     portENTER_CRITICAL(&lock_);
-    capture_.arm_fault();
+    const bool armed = capture_.arm_fault();
     portEXIT_CRITICAL(&lock_);
+    return armed;
 }
 
 WheelBatch SensorWheel::poll(TickMs now) noexcept {
