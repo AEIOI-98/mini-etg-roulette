@@ -4,18 +4,13 @@
 [Operator dashboard](https://aeioi-98.github.io/mini-etg-roulette/#/operator) ·
 [Run locally](docs/PHASE_3B_GUIDE.md) · [ESP32 in Wokwi](docs/PHASE_4_GUIDE.md)
 
-A portable C++17 model of European roulette, built as a portfolio project. The
-desktop simulator and browser player terminal share one engine. An operator
-dashboard exposes the ledger, faults and recovery. An ESP32 wheel controller
-runs that engine against timer-driven sensors, an OLED and an NVS journal.
+One C++17 engine runs European roulette on the desktop, in a browser and on an
+ESP32. Place a bet in the player terminal, then open the operator dashboard to
+see how the wager moves through escrow, payout or refund. The Wokwi demo shows
+the same round on an ESP32 with simulated wheel sensors and an OLED.
 
 **Educational demo only. No real money. Not certified gaming software.**
 No company products or proprietary features are reproduced.
-
-**The browser terminal is live on GitHub Pages.** The player terminal supports all 157
-legal selections on the table or in an accessible list. The operator dashboard
-shows eight seats, numbered events, fault injection, recovery and live RTP and
-frequency charts. The ESP32 controller is implemented and tested in Wokwi.
 
 ## Run the ESP32 wheel in Wokwi
 
@@ -39,10 +34,11 @@ npm run build
 npm run preview
 ```
 
-Open the Local URL printed by Vite. Choose **Player terminal** to place chips or
-**Operator** to inspect the same round. For a quick recovery demo, place a chip
-and reload while bets are open. The journal records the void and returns the
-outstanding stakes. [Build instructions and walkthrough](docs/PHASE_3B_GUIDE.md)
+Open the local URL printed by Vite. The player terminal offers 157 legal bet
+selections on the table or in an accessible list. Choose **Operator** to see all
+eight seats, the numbered event log and live charts. For a quick recovery demo,
+place a chip and reload while bets are open. The journal records the void and
+returns the stake. [Build instructions and walkthrough](docs/PHASE_3B_GUIDE.md)
 
 ## Run the desktop simulator
 
@@ -80,20 +76,18 @@ python -m pip install -r requirements-dev.txt
 pio test -e native
 ```
 
-For the prepared local checkout:
-
-```sh
-source .venv/bin/activate
-pio test -e native
-```
-
 The first run downloads PlatformIO's native platform, build tools and Unity test
 framework. PlatformIO and build caches stay in the ignored `.pio-core/` and
 `.pio/` directories. Tests compile with warnings as errors, exceptions disabled
 and RTTI disabled. Windows users can activate `.venv\Scripts\activate`
 instead of the POSIX `source` command.
 
-**153 native cases passed** across 11 suites.
+On every push, GitHub Actions runs the native tests and builds the ESP32
+firmware. On `main`, it also tests the browser terminal before deploying it
+to Pages. [CI runs](https://github.com/AEIOI-98/mini-etg-roulette/actions/workflows/deploy-web.yml)
+
+<details>
+<summary>What the 153 native tests cover</summary>
 
 - `test_domain`: exact wheel order and colours, every valid bet selection against
   all 37 results, invalid geometry, integer boundaries and RNG rejection draws.
@@ -117,17 +111,20 @@ instead of the POSIX `source` command.
 - `test_serial` checks CRC, escaping, framing and recovery from a broken stream.
 - `test_firmware_buttons` checks bounce, reset holds and timer rollover.
 
+</details>
+
 See the [Phase 1 walkthrough](docs/PHASE_1_GUIDE.md) for a complete round example
 and explanations aimed at a JavaScript developer. The
 [design and header index](docs/PHASE_1_PROPOSAL.md) documents the detailed contracts.
 
 ## Lucky Numbers and measured RTP
 
-Lucky mode is optional and off by default. After betting closes, it selects 1–5
-distinct numbers and weighted gross multipliers of 50×–500×. Straights otherwise
-pay 29:1 profit; all other bets keep their standard payouts. A 50× win returns
-50 times the stake in total. The configuration and enabling example are explained
-in [MATH.md](docs/MATH.md).
+New browser tables enable Lucky Numbers. The desktop simulator enables it with
+`--lucky-mode`, and the ESP32 demo uses standard payouts. In Lucky mode, the
+engine selects 1–5 distinct numbers after betting closes and assigns weighted
+gross multipliers of 50×–500×. A 50× win returns 50 times the stake in total.
+Other winning straight bets pay 29:1 profit, and all other bet types keep
+their standard payouts. [Rules and derivation](docs/MATH.md)
 
 Run the analytical calculation and the shared-core Monte Carlo experiment:
 
@@ -135,8 +132,9 @@ Run the analytical calculation and the shared-core Monte Carlo experiment:
 python3 tools/run_math.py --spins 10000000 --seed 20261111
 ```
 
-The default table has **97.297297% theoretical RTP**, exactly equal to standard
-roulette's 36/37. This seeded run produced:
+Return to player (RTP) is the total credits returned divided by the total
+wagered. With the default multiplier weights, the expected RTP is exactly
+36/37 (about **97.2973%**) in both modes.
 
 | Experiment | Spins | Observed RTP | Approximate 95% interval |
 | --- | ---: | ---: | --- |
@@ -144,18 +142,27 @@ roulette's 36/37. This seeded run produced:
 | Lucky, one credit on number 0 | 10,000,000 | 96.848700% | 96.371746%–97.325654% |
 | Lucky, one credit on each of 37 numbers | 10,000,000 | 97.270592% | 97.219625%–97.321559% |
 
-The last experiment wagers 37 credits per spin and measures the same per-credit
-expectation with lower variance. Its interval uses ten million independent spins,
-not 370 million independent bets. The fixed-number standard interval misses the
-theoretical value in this sample; a 95% interval is not guaranteed to contain it.
-All original results and seeds are retained.
+![Cumulative return across ten million spins for the three wagers, compared with the theoretical 97.2973%](docs/images/rtp-convergence.png)
 
-Wheel chi-square was **39.909041** with 36 degrees of freedom, below the 1%
-critical value of 58.619; this run does not reject uniformity. The
-[full report](tools/results/RESULTS.md) includes exact credit totals, seeds and
-draw diagnostics. [Convergence](tools/results/convergence.csv) and
-[histogram](tools/results/histogram.csv) CSV files are ready for Phase 5 plotting.
-Four tooling checks also pass: `python3 tools/test_math_tool.py`.
+Covering all 37 numbers gives one winning straight on every spin. It has the
+same expected return per credit as betting on zero, with less variation from
+spin to spin. Its interval uses ten million independent spins. For the standard
+bet on zero, the measured 95% interval fell below the theoretical return in
+this run. [Convergence data](tools/results/convergence.csv)
+
+![Observed counts for each printed number from 0 through 36, compared with the expected count of about 270,270](docs/images/pocket-distribution.png)
+
+A uniform wheel would average about 270,270 hits per number over ten million
+spins. The chi-square statistic was **39.909041** with 36 degrees of freedom,
+below the 1% critical value of 58.619. [Pocket counts](tools/results/histogram.csv) ·
+[Full report and seeds](tools/results/RESULTS.md)
+
+Regenerate both PNGs from the saved CSVs in a Python 3.10+ virtual environment:
+
+```sh
+python -m pip install -r tools/requirements-plots.txt
+python tools/plots.py
+```
 
 ## Architecture and decisions
 
@@ -176,7 +183,8 @@ flowchart LR
     RNG --> TestRNG[Seeded source]
 ```
 
-All amounts use checked `int64_t` credits. Fixed arrays bound memory to eight
+All amounts use whole credits stored as checked 64-bit integers, so placing and
+settling bets requires no rounding. Fixed arrays bound memory to eight
 seats and sixteen placements per seat. Each accepted bet is checked against all
 37 possible results, at base and maximum Lucky payouts, so an eventual win cannot
 overflow the ledger.
@@ -195,6 +203,17 @@ The memory journal survives recreation of an engine; it does **not** survive
 process exit. The browser uses localStorage. The ESP32 archives events in flash
 and publishes each new ledger through NVS.
 
+To choose one of 37 pockets uniformly, the code draws a 32-bit random word.
+There are seven values left over when the full range is divided by 37. The
+code redraws values 0–6, then takes the remainder modulo 37. Each pocket now
+has exactly the same number of accepted values. [Random draw implementation](core/src/random.cpp)
+
+On the ESP32, a timer interrupt puts timestamped sensor readings into a fixed
+queue. The main loop remembers the pocket where the ball settled and waits for
+the next zero crossing to confirm it counted exactly 37 pulses. A missing
+pulse voids the round and refunds the stake. Keeping display and journal writes
+in the main loop lets the interrupt return quickly. [Controller walkthrough](docs/PHASE_4_GUIDE.md)
+
 ## Design principle: the engine decides, the presentation follows
 
 The C++ engine records the result before the browser reveals it. The wheel
@@ -209,22 +228,20 @@ and saved it, the browser draws the accepted bet and updated credit meter.
 The wheel, rules, payouts and seven bots run in C++.
 [How the bridge, journal and charts work](docs/PHASE_3B_GUIDE.md)
 
-## Planned demo media and results
+## Demo recordings
 
-- Web terminal GIF: slot reserved for a recording of the implemented terminal.
-- Wokwi recording: slot reserved for the ESP32 demo, OLED wheel/result and recovery.
-- Monte Carlo charts: Phase 5 `tools/plots.py` will generate RTP convergence and
-  result-distribution PNGs from Phase 2 measurements for this README.
+- **Web terminal GIF** — reserved for a round from bet placement through payout.
+- **Wokwi recording** — reserved for the OLED wheel, result and reset recovery.
 
 ## Built with AI assistance
 
-AI agents proposed the interfaces, implemented Phases 1–4 after user approval, wrote
-tests and reviewed the code independently. The native test suite runs the actual
-C++ implementation. See [AI_WORKFLOW.md](docs/AI_WORKFLOW.md) for findings, fixes
-and validation performed in this session. Human review is still required at each
-phase boundary.
+AI agents proposed interfaces, implemented the engine and its three targets,
+wrote tests, and prepared the charts and CI workflow. The development log
+records what tests caught, how the code changed, and which checks ran in
+Wokwi. [AI development log](docs/AI_WORKFLOW.md)
 
-Projekt je učni prikaz evropske rulete s skupnim jedrom v jeziku C++17.
-Ne uporablja pravega denarja in ni certificirana programska oprema za igre na srečo.
-Namizni simulator, spletni terminal in krmilnik ESP32 v Wokwi uporabljajo isto
-jedro. Na zaslonu OLED so vidni rezultat, vračilo stave in obnovitev po ponovnem zagonu.
+Namizni simulator, spletni terminal in krmilnik ESP32 v simulatorju Wokwi
+uporabljajo skupno jedro za evropsko ruleto, napisano v jeziku C++17.
+Po ponovnem zagonu krmilnik iz dnevnika obnovi stanje in na zaslonu OLED
+prikaže vračilo stave ali izid izplačila. Projekt je namenjen učenju, ne
+uporablja pravega denarja in ni certificiran za igre na srečo.

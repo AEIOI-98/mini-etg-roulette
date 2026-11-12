@@ -628,3 +628,26 @@ on simulated hardware. No physical ESP32 was connected.
 All 153 PlatformIO native cases passed across eleven suites, together with
 five Python monitor checks, nine simulator integrations, four math checks and
 eleven browser bridge/player/storage tests. The ESP32 image built successfully.
+
+## 2026-11-12 — Phase 5 plots, continuous integration and README
+
+The user asked to finish the plan. We added a Python plotting script and used
+the saved Monte Carlo output for both README figures. We reran all 10,000,000
+spins with seed 20261111 in a temporary directory. The convergence data, pocket
+counts and results report matched the published files byte for byte. Regenerating
+the PNGs from those CSVs produced identical files in the tested environment.
+We also checked that a two-spin run with a single convergence sample plotted.
+
+The return chart uses the same three wagers as the results table. The pocket
+chart draws a line from the expected count to each observed count so small
+differences are visible at README size. We checked both rendered images.
+Review also caught a documentation error about Lucky Numbers. The browser
+enables the feature for new tables, the simulator selects it with a flag,
+and the ESP32 demo uses standard payouts. The requested recording slots
+remain in the README.
+
+The native suite passed all 153 cases locally and PlatformIO built the ESP32
+image. We then pushed the workflow change to a temporary branch. GitHub ran
+the native tests, the simulator checks and the ESP32 build successfully and
+skipped the browser build and deployment on that branch.
+[Branch CI run](https://github.com/AEIOI-98/mini-etg-roulette/actions/runs/43314724753)
