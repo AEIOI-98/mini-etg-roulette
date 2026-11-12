@@ -2,20 +2,31 @@
 
 **Live demo** · [Play roulette](https://aeioi-98.github.io/mini-etg-roulette/#/play) ·
 [Operator dashboard](https://aeioi-98.github.io/mini-etg-roulette/#/operator) ·
-[Run locally](docs/PHASE_3B_GUIDE.md)
+[Run locally](docs/PHASE_3B_GUIDE.md) · [ESP32 in Wokwi](docs/PHASE_4_GUIDE.md)
 
 A portable C++17 model of European roulette, built as a portfolio project. The
 desktop simulator and browser player terminal share one engine. An operator
-dashboard exposes the ledger, faults and recovery. An ESP32 controller is planned.
+dashboard exposes the ledger, faults and recovery. An ESP32 wheel controller
+runs that engine against timer-driven sensors, an OLED and an NVS journal.
 
 **Educational demo only. No real money. Not certified gaming software.**
 No company products or proprietary features are reproduced.
 
-**Phase 3B is live on GitHub Pages.** The player terminal supports all 157
+**The browser terminal is live on GitHub Pages.** The player terminal supports all 157
 legal selections on the table or in an accessible list. The operator dashboard
 shows eight seats, numbered events, fault injection, recovery and live RTP and
-frequency charts. The ESP32 controller and final portfolio media are scheduled
-for Phases 4 and 5.
+frequency charts. The ESP32 controller is implemented and tested in Wokwi.
+
+## Run the ESP32 wheel in Wokwi
+
+[Start with the Wokwi guide](docs/PHASE_4_GUIDE.md) for the prebuilt firmware,
+circuit and simulator. With PlatformIO and the Wokwi VS Code extension, open
+this repository, run `pio run -e esp32dev`, then choose **Wokwi: Start Simulator**.
+
+Tap **Bets** to stake 10 demo credits on red. Tap it again to close betting,
+then tap **Launch**. **Fault** drops a pocket pulse so you can see the refund.
+Hold **Launch** for 1.2 seconds while bets are open to reboot the chip and see
+NVS restore the balance on the OLED.
 
 ## Run the browser terminal
 
@@ -82,7 +93,7 @@ framework. PlatformIO and build caches stay in the ignored `.pio-core/` and
 and RTTI disabled. Windows users can activate `.venv\Scripts\activate`
 instead of the POSIX `source` command.
 
-Verified locally: **131 test cases passed** across seven suites:
+**153 native cases passed** across 11 suites.
 
 - `test_domain`: exact wheel order and colours, every valid bet selection against
   all 37 results, invalid geometry, integer boundaries and RNG rejection draws.
@@ -99,6 +110,12 @@ Verified locally: **131 test cases passed** across seven suites:
   strategies, affordability, full engine rounds and allocation checks.
 - `test_sim_journal`: the session RAM journal's atomic publication, immutable
   event prefix, capacity reserves and recovery after recreating the engine.
+- `test_sensor` covers all 37 landings, missing and excess pulses, a late fault
+  request, timer rollover and a full interrupt queue.
+- `test_nvs_journal` exercises torn publication, corrupt archives and recovery
+  across a 128-wager payout.
+- `test_serial` checks CRC, escaping, framing and recovery from a broken stream.
+- `test_firmware_buttons` checks bounce, reset holds and timer rollover.
 
 See the [Phase 1 walkthrough](docs/PHASE_1_GUIDE.md) for a complete round example
 and explanations aimed at a JavaScript developer. The
@@ -144,15 +161,17 @@ Four tooling checks also pass: `python3 tools/test_math_tool.py`.
 
 ```mermaid
 flowchart LR
-    Caller[CLI / native tests / browser WASM] --> Engine[C++17 Engine]
+    Caller[CLI / native tests / browser WASM / ESP32] --> Engine[C++17 Engine]
     Bots[Shared C++ bots] --> Engine
     Engine --> Rules[Wheel model, bet geometry, integer accounting]
     Engine --> Lucky[Lucky selection and payouts]
     Engine --> Wheel[IWheel]
     Engine --> Storage[IStorage]
     Wheel --> Fake[Simulated wheel / test fake]
+    Wheel --> Sensor[ESP32 timer / sensor queue]
     Storage --> Memory[Session / test RAM journal]
     Storage --> Browser[Atomic localStorage journal]
+    Storage --> NVS[ESP32 NVS journal]
     Lucky --> RNG[IRandom + rejection sampling]
     RNG --> TestRNG[Seeded source]
 ```
@@ -173,7 +192,8 @@ recovery uses the saved values without consuming randomness.
 reusable bots, seeded RNG and wheel live in `sim/shared/`, separate from CLI
 parsing and printing. Wheel, Lucky and bot decisions use separate seeded streams.
 The memory journal survives recreation of an engine; it does **not** survive
-process exit. The browser uses localStorage. The ESP32 NVS adapter is planned for Phase 4.
+process exit. The browser uses localStorage. The ESP32 archives events in flash
+and publishes each new ledger through NVS.
 
 ## Design principle: the engine decides, the presentation follows
 
@@ -198,7 +218,7 @@ The wheel, rules, payouts and seven bots run in C++.
 
 ## Built with AI assistance
 
-AI agents proposed the interfaces, implemented Phases 1–3B after user approval, wrote
+AI agents proposed the interfaces, implemented Phases 1–4 after user approval, wrote
 tests and reviewed the code independently. The native test suite runs the actual
 C++ implementation. See [AI_WORKFLOW.md](docs/AI_WORKFLOW.md) for findings, fixes
 and validation performed in this session. Human review is still required at each
@@ -206,5 +226,5 @@ phase boundary.
 
 Projekt je učni prikaz evropske rulete s skupnim jedrom v jeziku C++17.
 Ne uporablja pravega denarja in ni certificirana programska oprema za igre na srečo.
-Namizni simulator in spletni terminal uporabljata isto jedro, medtem ko
-nadzorna plošča prikazuje potek igre in obnovitev po prekinitvi.
+Namizni simulator, spletni terminal in krmilnik ESP32 v Wokwi uporabljajo isto
+jedro. Na zaslonu OLED so vidni rezultat, vračilo stave in obnovitev po ponovnem zagonu.

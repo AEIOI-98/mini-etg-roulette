@@ -584,3 +584,47 @@ counted all 157 table selections and the eight operator seats, and placed a
 one-credit wager. Reloading before detection restored the player's 1,000 credits,
 cleared escrow and added refund events. The verified player and dashboard links
 are at the top of the README.
+
+## 2026-11-12 — Phase 4 ESP32 controller
+
+The user asked to continue with the ESP32 controller in Wokwi. We built for an
+ESP32 DevKit with PlatformIO and Arduino 2.0.17. We chose a single demonstration
+seat with a ten-credit red wager so all device operations fit on three buttons.
+Holding Launch requests a chip reset and leaves the running simulation's flash
+in place. The OLED and LEDs display the state of the same C++ engine used by
+the simulator and browser.
+
+The timer adapter hands timestamped index, pocket and settle observations to
+the main loop. It waits for the closing index to verify the revolution in which
+the ball landed. Native tests exercised all 37 pockets and suppressed each of
+111 individual pulse positions across a spin. Review found a late fault-button
+press could arm the next spin after the final sample was queued. We separated
+finished capture from a wheel waiting for launch and added a regression test.
+
+The NVS adapter publishes a compact ledger after saving any newly completed
+event blocks. Fault-injection tests covered both sides of the write boundary,
+including a 128-wager payout. The fixed-width encoding and journal validation
+are shared with the browser. The browser's existing 9,130-byte funded fixture
+remained byte-for-byte identical. The serial codec and host monitor check
+length, sequence, escaping and CRC. A live pseudo-terminal test split a packet
+across a read timeout.
+
+The first Wokwi boot reached Idle but reported a missing core-dump partition.
+We reserved the standard partition in the unused space of the 4 MiB flash.
+A build review found the merged image could go stale when only the partition
+table changed. Its build now tracks all input segments. We verified both a
+partition-only rebuild and regeneration after moving the previous image aside.
+
+We uploaded the merged image and circuit to Wokwi's web simulator. Tapping
+Bets moved ten credits to escrow. A reset before detection restored 1,000
+credits. Suppressing a pulse lit the red LED, showed “Bad pulse count,” and
+refunded every outstanding credit. Another spin displayed its recorded number
+on the OLED. A result-state reset settled it, and a payout-state reset preserved
+that balance. Both winning and losing recovery paths occurred during the runs.
+We checked the green, yellow and red lights in their respective states and
+inspected separate spin, result, refund and payout OLED frames. The checks ran
+on simulated hardware. No physical ESP32 was connected.
+
+All 153 PlatformIO native cases passed across eleven suites, together with
+five Python monitor checks, nine simulator integrations, four math checks and
+eleven browser bridge/player/storage tests. The ESP32 image built successfully.
