@@ -64,5 +64,6 @@ differ from the seeded fixture. [Run the controller](PHASE_4_GUIDE.md)
    the Result state together. On boot, `recover()` refunds a wager interrupted
    before Result, settles a saved Result, or recognizes an existing Payout.
    The ESP32 publishes each new ledger by writing the NVS record named
-   `head` last. [Result and recovery code](../core/src/engine.cpp) ·
-   [NVS journal](../firmware/src/nvs_journal.cpp)
+   `head` last. [Record the result](../core/src/engine.cpp#L547) ·
+   [Choose the recovery action](../core/src/engine.cpp#L293) ·
+   [Publish the flash ledger](../firmware/src/nvs_journal.cpp#L182)

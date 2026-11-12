@@ -651,3 +651,28 @@ image. We then pushed the workflow change to a temporary branch. GitHub ran
 the native tests, the simulator checks and the ESP32 build successfully and
 skipped the browser build and deployment on that branch.
 [Branch CI run](https://github.com/AEIOI-98/mini-etg-roulette/actions/runs/43314724753)
+
+## 2026-11-12 — One wager across the three targets
+
+The user asked to implement four improvements from the plan review. We wrote a
+build order that starts with one 10-credit bet on red and gives the candidate
+a demonstration to lead at each phase. The first test runs the same timed
+commands against a native build of the C++ session and the production WASM
+bindings. Seed 3 recorded red 36. Both sessions refunded a pre-result reset
+to 1,000 credits, paid the next wager to 1,010 on recovery, and preserved the
+ledger on another reset. The separate Chrome test placed the bet through the
+table and checked the operator's balance against the displayed colour.
+
+We added the Python math and serial monitor suites to CI and enabled the
+browser job on pull requests. The math suite now reruns ten million spins
+to a temporary directory and compares the report and both CSVs to the published
+seed. Locally, all 153 native and ten Python checks passed. The native/WASM
+comparison and Chrome wager check passed. The build plan records separate
+criteria for the configured RTP and the measured confidence intervals.
+
+We filmed the Wokwi controller with the released Phase 4 firmware. Two earlier
+takes landed on black 31 and zero. We selected one uninterrupted session that
+drew red 23 so the recording shows a positive payout. Its first wager was
+refunded to 1,000, the next wager settled to 1,010 on reboot, and another reboot
+showed Already paid at 1,010. The GIF captions and enlarged OLED use frames from
+that session. [Wokwi recording](images/wokwi-recovery.gif)

@@ -20,6 +20,9 @@ the wager. The controller uses standard European payouts.
 
 ## Play a round and try recovery
 
+Watch the OLED balance change on a real Wokwi run, then try the same actions
+on a fresh simulated board. [Recorded reset and payout](../README.md#esp32-reset-recovery-in-wokwi)
+
 | Control | Action |
 | --- | --- |
 | **Bets** (B) | Tap to open betting, then tap again to close. In Fault it acknowledges the fault. In Payout it finishes the round. |

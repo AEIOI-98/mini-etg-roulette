@@ -25,7 +25,7 @@ this repository, run `pio run -e esp32dev`, then choose **Wokwi: Start Simulator
 Tap **Bets** to stake 10 demo credits on red. Tap it again to close betting,
 then tap **Launch**. **Fault** drops a pocket pulse so you can see the refund.
 Hold **Launch** for 1.2 seconds while bets are open to reboot the chip and see
-NVS restore the balance on the OLED.
+NVS restore the balance on the OLED. [Watch the reset demo](#esp32-reset-recovery-in-wokwi)
 
 ## Run the browser terminal
 
@@ -239,8 +239,17 @@ The wheel, rules, payouts and seven bots run in C++.
 
 ## Demo recordings
 
-- **Web terminal GIF** — reserved for a round from bet placement through payout.
-- **Wokwi recording** — reserved for the OLED wheel, result and reset recovery.
+### ESP32 reset recovery in Wokwi
+
+![ESP32 refunding a 10-credit red wager to 1,000, then paying red 23 to 1,010 and retaining that balance on another reset](docs/images/wokwi-recovery.gif)
+
+This run shows both sides of the journal write. The first reset refunds the
+open wager. In the next round the sensor records red 23, and recovery credits
+the 20-credit gross return. The last reset shows **Already paid** and the
+same 1,010 credits. The recorded take was selected for its red win.
+[Perform the demo and trace the journal write](docs/BUILD_PLAN.md#lead-the-recovery-demonstration)
+
+**Web terminal GIF** — reserved for a round from bet placement through payout.
 
 ## Built with AI assistance
 
